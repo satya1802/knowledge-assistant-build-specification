@@ -71,6 +71,23 @@ class ConfigOut(BaseModel):
     self_signup_enabled: bool
 
 
+class UserCreateRequest(BaseModel):
+    """POST /users body (admin-only)."""
+
+    email: str
+    password: str
+    role: Literal["admin", "employee"] = "employee"
+
+
+class UserUpdateRequest(BaseModel):
+    """PATCH /users/{id} body (admin-only). Every field optional; only the
+    fields provided are changed."""
+
+    role: Literal["admin", "employee"] | None = None
+    is_enabled: bool | None = None
+    password: str | None = None
+
+
 class MessageResponse(BaseModel):
     """A plain success acknowledgement, e.g. for logout."""
 

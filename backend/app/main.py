@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import models  # noqa: F401 -- imported so the tables register before create_all
 from app.database import Base, engine
-from app.routers import account, auth
+from app.routers import account, auth, users
 
 _DESCRIPTION = (
     "Knowledge Assistant: an enterprise RAG chatbot that answers employees' "
@@ -49,6 +49,7 @@ Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
 app.include_router(account.router)
+app.include_router(users.router)
 
 
 @app.get("/health")

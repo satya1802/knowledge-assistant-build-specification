@@ -167,6 +167,13 @@ def get_current_user(
     if user is None:
         raise _unauthorized()
 
+    if not user.is_enabled:
+        # Disabled mid-session (AC-019): reject immediately, clearing the
+        # now-useless cookie, rather than waiting for it to expire.
+        db.delete(session_row)
+        db.commit()
+        raise _unauthorized()
+
     session_row.last_activity_at = now
     db.commit()
 

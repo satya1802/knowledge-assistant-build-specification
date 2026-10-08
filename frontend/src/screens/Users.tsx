@@ -1,153 +1,21 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from "react";
 
 import * as UI from "@/lib/ui";
 import { Icons } from "@/lib/icons";
 import { brand } from "@/lib/brand";
 import { useNavigate } from "@/lib/navigate";
+import { apiFetch, ApiError } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 const { Button, Card, CardContent, Input, Label, Table, THead, TBody, TR, TH, TD } = UI;
-const {
-  Plus,
-  Search,
-  Check,
-  X,
-  User,
-  Users,
-  Settings,
-  Edit,
-  AlertCircle,
-  CheckCircle,
-  MoreHorizontal,
-} = Icons;
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-const CURRENT_USER_ID = 1;
-
-const INITIAL_USERS = [
-  {
-    id: 1,
-    name: "Satya Ganaraju",
-    email: "satya.ganaraju@quorq.ai",
-    role: "admin",
-    is_enabled: true,
-    locked_until: null,
-    failed_attempts: 0,
-    created_at: "2026-01-12",
-    last_seen: "Today at 09:14",
-  },
-  {
-    id: 2,
-    name: "Alice Berensen",
-    email: "alice.berensen@quorq.ai",
-    role: "admin",
-    is_enabled: true,
-    locked_until: null,
-    failed_attempts: 0,
-    created_at: "2026-02-03",
-    last_seen: "Today at 08:40",
-  },
-  {
-    id: 3,
-    name: "Nkechi Obi",
-    email: "nkechi.obi@quorq.ai",
-    role: "admin",
-    is_enabled: true,
-    locked_until: null,
-    failed_attempts: 0,
-    created_at: "2026-01-29",
-    last_seen: "Yesterday at 18:12",
-  },
-  {
-    id: 4,
-    name: "Marcus Odell",
-    email: "marcus.odell@quorq.ai",
-    role: "employee",
-    is_enabled: true,
-    locked_until: null,
-    failed_attempts: 0,
-    created_at: "2026-03-18",
-    last_seen: "Yesterday at 16:52",
-  },
-  {
-    id: 5,
-    name: "Priya Raghunathan",
-    email: "priya.raghunathan@quorq.ai",
-    role: "employee",
-    is_enabled: true,
-    locked_until: null,
-    failed_attempts: 0,
-    created_at: "2026-04-02",
-    last_seen: "Today at 11:05",
-  },
-  {
-    id: 6,
-    name: "Tom Whitcombe",
-    email: "tom.whitcombe@quorq.ai",
-    role: "employee",
-    is_enabled: true,
-    locked_until: "10:26",
-    failed_attempts: 5,
-    created_at: "2026-05-20",
-    last_seen: "6 Oct at 15:31",
-  },
-  {
-    id: 7,
-    name: "Dana Kowalczyk",
-    email: "dana.kowalczyk@quorq.ai",
-    role: "employee",
-    is_enabled: false,
-    locked_until: null,
-    failed_attempts: 0,
-    created_at: "2026-02-27",
-    last_seen: "11 Sep at 09:02",
-  },
-  {
-    id: 8,
-    name: "Ruth Ellison",
-    email: "ruth.ellison@quorq.ai",
-    role: "employee",
-    is_enabled: true,
-    locked_until: null,
-    failed_attempts: 2,
-    created_at: "2026-06-11",
-    last_seen: "2 Oct at 13:47",
-  },
-  {
-    id: 9,
-    name: "Joel Nakamura",
-    email: "joel.nakamura@quorq.ai",
-    role: "employee",
-    is_enabled: true,
-    locked_until: null,
-    failed_attempts: 0,
-    created_at: "2026-07-01",
-    last_seen: "Today at 07:58",
-  },
-  {
-    id: 10,
-    name: "Felix Adeyemi",
-    email: "felix.adeyemi@quorq.ai",
-    role: "employee",
-    is_enabled: true,
-    locked_until: null,
-    failed_attempts: 0,
-    created_at: "2026-10-07",
-    last_seen: null,
-  },
-  {
-    id: 11,
-    name: "Harriet Lindqvist",
-    email: "harriet.lindqvist@quorq.ai",
-    role: "employee",
-    is_enabled: false,
-    locked_until: null,
-    failed_attempts: 0,
-    created_at: "2026-03-05",
-    last_seen: "22 Aug at 10:19",
-  },
-];
+type ApiUser = {
+  id: string | number;
+  email: string;
+  role: string;
+  is_enabled: boolean;
+  theme?: string;
+};
 
 const ROLE_FILTERS = [
   { value: "all", label: "All roles" },
@@ -158,7 +26,6 @@ const ROLE_FILTERS = [
 const STATUS_FILTERS = [
   { value: "all", label: "All statuses" },
   { value: "active", label: "Active" },
-  { value: "locked", label: "Locked" },
   { value: "disabled", label: "Disabled" },
 ];
 
@@ -174,13 +41,7 @@ const PASSWORD_WORDS = [
   "pennant",
 ];
 
-function formatDate(iso) {
-  const parts = String(iso).split("-");
-  if (parts.length !== 3) return iso;
-  return `${Number(parts[2])} ${MONTHS[Number(parts[1]) - 1]} ${parts[0]}`;
-}
-
-function titleCaseFromEmail(email) {
+function titleCaseFromEmail(email: string) {
   const local = String(email).split("@")[0] || "";
   return local
     .split(/[._-]+/)
@@ -191,16 +52,15 @@ function titleCaseFromEmail(email) {
     .join(" ");
 }
 
-function initialsOf(name) {
+function initialsOf(name: string) {
   const bits = String(name).trim().split(/\s+/);
+  if (!bits[0]) return "?";
   if (bits.length === 1) return bits[0].slice(0, 2).toUpperCase();
   return (bits[0][0] + bits[bits.length - 1][0]).toUpperCase();
 }
 
-function statusOf(user) {
-  if (!user.is_enabled) return "disabled";
-  if (user.locked_until) return "locked";
-  return "active";
+function statusOf(user: ApiUser) {
+  return user.is_enabled ? "active" : "disabled";
 }
 
 function suggestPassword() {
@@ -212,18 +72,22 @@ function suggestPassword() {
 
 export default function Screen() {
   const navigate = useNavigate();
-  const { Button, Card, CardContent, Input, Label, Table, THead, TBody, TR, TH, TD } = UI;
+  const { user: currentUser } = useAuth();
 
-  const [users, setUsers] = React.useState(INITIAL_USERS);
+  const [users, setUsers] = React.useState<ApiUser[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+
   const [query, setQuery] = React.useState("");
   const [roleFilter, setRoleFilter] = React.useState("all");
   const [statusFilter, setStatusFilter] = React.useState("all");
-  const [selfSignup, setSelfSignup] = React.useState(false);
-  const [notice, setNotice] = React.useState(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
 
-  const [openMenuId, setOpenMenuId] = React.useState(null);
+  const [openMenuId, setOpenMenuId] = React.useState<string | number | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
-  const [resetUser, setResetUser] = React.useState(null);
+  const [resetUser, setResetUser] = React.useState<ApiUser | null>(null);
+  const [addSubmitting, setAddSubmitting] = React.useState(false);
+  const [resetSubmitting, setResetSubmitting] = React.useState(false);
 
   const [addEmail, setAddEmail] = React.useState("");
   const [addPassword, setAddPassword] = React.useState("");
@@ -234,17 +98,46 @@ export default function Screen() {
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [resetErrors, setResetErrors] = React.useState<Record<string, string>>({});
 
-  const menuRef = React.useRef(null);
-  const triggerRefs = React.useRef({});
-  const addButtonRef = React.useRef(null);
-  const returnFocusRef = React.useRef(null);
-  const addDialogRef = React.useRef(null);
-  const resetDialogRef = React.useRef(null);
-  const addFirstFieldRef = React.useRef(null);
-  const resetFirstFieldRef = React.useRef(null);
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+  const triggerRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
+  const addButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = React.useRef<HTMLElement | null>(null);
+  const addDialogRef = React.useRef<HTMLDivElement | null>(null);
+  const resetDialogRef = React.useRef<HTMLDivElement | null>(null);
+  const addFirstFieldRef = React.useRef<HTMLInputElement | null>(null);
+  const resetFirstFieldRef = React.useRef<HTMLInputElement | null>(null);
 
   const navy = brand.primaryColor;
   const green = brand.accentColor;
+
+  // AC-021: a non-admin opening /users directly is redirected away.
+  React.useEffect(() => {
+    if (currentUser && currentUser.role !== "admin") {
+      navigate("chat");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  // --- load users from the server ----------------------------------------
+  const loadUsers = React.useCallback(async function () {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await apiFetch<ApiUser[]>("/users");
+      setUsers(data);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : "Could not load users. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(
+    function () {
+      loadUsers();
+    },
+    [loadUsers],
+  );
 
   // --- derived data -------------------------------------------------------
   const counts = React.useMemo(
@@ -269,8 +162,9 @@ export default function Screen() {
     function () {
       const q = query.trim().toLowerCase();
       return users.filter(function (u) {
+        const name = titleCaseFromEmail(u.email);
         const matchesQuery =
-          !q || u.email.toLowerCase().indexOf(q) !== -1 || u.name.toLowerCase().indexOf(q) !== -1;
+          !q || u.email.toLowerCase().indexOf(q) !== -1 || name.toLowerCase().indexOf(q) !== -1;
         const matchesRole = roleFilter === "all" || u.role === roleFilter;
         const matchesStatus = statusFilter === "all" || statusOf(u) === statusFilter;
         return matchesQuery && matchesRole && matchesStatus;
@@ -279,16 +173,14 @@ export default function Screen() {
     [users, query, roleFilter, statusFilter],
   );
 
-  const filtersActive = query.trim() !== "" || roleFilter !== "all" || statusFilter !== "all";
-
   // --- menu behaviour -----------------------------------------------------
   React.useEffect(
     function () {
       if (openMenuId == null) return undefined;
-      function onPointerDown(event) {
-        if (menuRef.current && menuRef.current.contains(event.target)) return;
-        const trigger = triggerRefs.current[openMenuId];
-        if (trigger && trigger.contains(event.target)) return;
+      function onPointerDown(event: MouseEvent) {
+        if (menuRef.current && menuRef.current.contains(event.target as Node)) return;
+        const trigger = triggerRefs.current[String(openMenuId)];
+        if (trigger && trigger.contains(event.target as Node)) return;
         setOpenMenuId(null);
       }
       document.addEventListener("mousedown", onPointerDown);
@@ -302,19 +194,22 @@ export default function Screen() {
   React.useEffect(
     function () {
       if (openMenuId == null || !menuRef.current) return;
-      const first = menuRef.current.querySelector('[role="menuitem"]:not([aria-disabled="true"])');
+      const first = menuRef.current.querySelector(
+        '[role="menuitem"]:not([aria-disabled="true"])',
+      ) as HTMLElement | null;
       if (first) first.focus();
     },
     [openMenuId],
   );
 
-  function closeMenu(focusTrigger) {
+  function closeMenu(focusTrigger?: boolean) {
     const id = openMenuId;
     setOpenMenuId(null);
-    if (focusTrigger && id != null && triggerRefs.current[id]) triggerRefs.current[id].focus();
+    if (focusTrigger && id != null && triggerRefs.current[String(id)])
+      triggerRefs.current[String(id)]?.focus();
   }
 
-  function onMenuKeyDown(event) {
+  function onMenuKeyDown(event: React.KeyboardEvent) {
     if (event.key === "Escape") {
       event.stopPropagation();
       closeMenu(true);
@@ -322,9 +217,10 @@ export default function Screen() {
     }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
     event.preventDefault();
+    if (!menuRef.current) return;
     const items = Array.prototype.slice
       .call(menuRef.current.querySelectorAll('[role="menuitem"]'))
-      .filter(function (el) {
+      .filter(function (el: HTMLElement) {
         return el.getAttribute("aria-disabled") !== "true";
       });
     if (!items.length) return;
@@ -351,7 +247,10 @@ export default function Screen() {
     [resetUser],
   );
 
-  function trapKeyDown(ref, onClose) {
+  function trapKeyDown(
+    ref: React.RefObject<HTMLDivElement | null>,
+    onClose: () => void,
+  ): React.KeyboardEventHandler {
     return function (event) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -363,8 +262,8 @@ export default function Screen() {
         "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]",
       );
       if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const first = focusable[0] as HTMLElement;
+      const last = focusable[focusable.length - 1] as HTMLElement;
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
@@ -389,8 +288,8 @@ export default function Screen() {
     if (returnFocusRef.current) returnFocusRef.current.focus();
   }
 
-  function openResetDialog(user) {
-    returnFocusRef.current = triggerRefs.current[user.id] || null;
+  function openResetDialog(user: ApiUser) {
+    returnFocusRef.current = triggerRefs.current[String(user.id)] || null;
     setNewPassword("");
     setConfirmPassword("");
     setResetErrors({});
@@ -404,58 +303,57 @@ export default function Screen() {
   }
 
   // --- actions ------------------------------------------------------------
-  function announce(text) {
+  function announce(text: string) {
     setNotice(text);
   }
 
-  function toggleRole(user) {
+  function replaceUser(updated: ApiUser) {
+    setUsers(function (prev) {
+      return prev.map(function (u) {
+        return String(u.id) === String(updated.id) ? updated : u;
+      });
+    });
+  }
+
+  async function toggleRole(user: ApiUser) {
     const nextRole = user.role === "admin" ? "employee" : "admin";
-    setUsers(function (prev) {
-      return prev.map(function (u) {
-        return u.id === user.id ? Object.assign({}, u, { role: nextRole }) : u;
+    try {
+      const updated = await apiFetch<ApiUser>(`/users/${user.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ role: nextRole }),
       });
-    });
-    announce(
-      nextRole === "admin"
-        ? `${user.email} is now an admin. They can upload and delete documents and manage users.`
-        : `Admin rights removed from ${user.email}. They keep employee access to chat and the knowledge base.`,
-    );
+      replaceUser(updated);
+      announce(
+        updated.role === "admin"
+          ? `${updated.email} is now an admin. They can upload and delete documents and manage users.`
+          : `Admin rights removed from ${updated.email}. They keep employee access to chat and the knowledge base.`,
+      );
+    } catch (err) {
+      announce(err instanceof ApiError ? err.message : "Could not update the role. Try again.");
+    }
     closeMenu(true);
   }
 
-  function toggleEnabled(user) {
+  async function toggleEnabled(user: ApiUser) {
     const nextEnabled = !user.is_enabled;
-    setUsers(function (prev) {
-      return prev.map(function (u) {
-        return u.id === user.id
-          ? Object.assign({}, u, {
-              is_enabled: nextEnabled,
-              locked_until: nextEnabled ? u.locked_until : null,
-            })
-          : u;
+    try {
+      const updated = await apiFetch<ApiUser>(`/users/${user.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_enabled: nextEnabled }),
       });
-    });
-    announce(
-      nextEnabled
-        ? `${user.email} is enabled again and can sign in.`
-        : `${user.email} is disabled. Their active session is rejected on the next request.`,
-    );
+      replaceUser(updated);
+      announce(
+        updated.is_enabled
+          ? `${updated.email} is enabled again and can sign in.`
+          : `${updated.email} is disabled. Their active session is rejected on the next request.`,
+      );
+    } catch (err) {
+      announce(err instanceof ApiError ? err.message : "Could not update the account. Try again.");
+    }
     closeMenu(true);
   }
 
-  function clearLock(user) {
-    setUsers(function (prev) {
-      return prev.map(function (u) {
-        return u.id === user.id
-          ? Object.assign({}, u, { locked_until: null, failed_attempts: 0 })
-          : u;
-      });
-    });
-    announce(`Sign-in lock cleared for ${user.email}. They can try again straight away.`);
-    closeMenu(true);
-  }
-
-  function submitAddUser(event) {
+  async function submitAddUser(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const errors: Record<string, string> = {};
     const email = addEmail.trim().toLowerCase();
@@ -463,12 +361,6 @@ export default function Screen() {
       errors.email = "Enter a work email address.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.email = "Enter a valid email address, for example name@quorq.ai.";
-    } else if (
-      users.some(function (u) {
-        return u.email.toLowerCase() === email;
-      })
-    ) {
-      errors.email = "An account already exists for this email address.";
     }
     if (addPassword.length < PASSWORD_MIN) {
       errors.password = `The initial password must be at least ${PASSWORD_MIN} characters.`;
@@ -476,32 +368,34 @@ export default function Screen() {
     setAddErrors(errors);
     if (Object.keys(errors).length) return;
 
-    const nextId =
-      users.reduce(function (max, u) {
-        return Math.max(max, u.id);
-      }, 0) + 1;
-    const created = {
-      id: nextId,
-      name: titleCaseFromEmail(email),
-      email: email,
-      role: addIsAdmin ? "admin" : "employee",
-      is_enabled: true,
-      locked_until: null,
-      failed_attempts: 0,
-      created_at: "2026-10-08",
-      last_seen: null,
-    };
-    setUsers(function (prev) {
-      return [created].concat(prev);
-    });
-    setQuery("");
-    setRoleFilter("all");
-    setStatusFilter("all");
-    announce(`Account created for ${email}. No email is sent — give them the password directly.`);
-    closeAddDialog();
+    setAddSubmitting(true);
+    try {
+      const created = await apiFetch<ApiUser>("/users", {
+        method: "POST",
+        body: JSON.stringify({
+          email,
+          password: addPassword,
+          role: addIsAdmin ? "admin" : "employee",
+        }),
+      });
+      setUsers(function (prev) {
+        return [created].concat(prev);
+      });
+      setQuery("");
+      setRoleFilter("all");
+      setStatusFilter("all");
+      announce(`Account created for ${created.email}. No email is sent — give them the password directly.`);
+      closeAddDialog();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Something went wrong. Try again.";
+      setAddErrors({ form: message });
+    } finally {
+      setAddSubmitting(false);
+    }
   }
 
-  function submitReset(event) {
+  async function submitReset(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const errors: Record<string, string> = {};
     if (newPassword.length < PASSWORD_MIN) {
@@ -514,15 +408,23 @@ export default function Screen() {
     if (Object.keys(errors).length) return;
 
     const target = resetUser;
-    setUsers(function (prev) {
-      return prev.map(function (u) {
-        return u.id === target.id
-          ? Object.assign({}, u, { locked_until: null, failed_attempts: 0 })
-          : u;
+    if (!target) return;
+    setResetSubmitting(true);
+    try {
+      const updated = await apiFetch<ApiUser>(`/users/${target.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ password: newPassword }),
       });
-    });
-    announce(`Password reset for ${target.email}. Any sign-in lock has been cleared.`);
-    closeResetDialog();
+      replaceUser(updated);
+      announce(`Password reset for ${updated.email}. Any sign-in lock has been cleared.`);
+      closeResetDialog();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Something went wrong. Try again.";
+      setResetErrors({ form: message });
+    } finally {
+      setResetSubmitting(false);
+    }
   }
 
   function clearFilters() {
@@ -532,7 +434,7 @@ export default function Screen() {
   }
 
   // --- small presentational helpers --------------------------------------
-  function StatTile(props) {
+  function StatTile(props: { label: string; value: number; hint: string }) {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-5">
         <p className="text-sm font-medium" style={{ color: brand.neutralColor }}>
@@ -548,27 +450,13 @@ export default function Screen() {
     );
   }
 
-  function StatusCell(props) {
-    const user = props.user;
-    const status = statusOf(user);
+  function StatusCell(props: { user: ApiUser }) {
+    const status = statusOf(props.user);
     if (status === "active") {
       return (
         <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-medium text-emerald-900">
           <Icons.CheckCircle aria-hidden="true" className="h-4 w-4" style={{ color: green }} />
           Active
-        </span>
-      );
-    }
-    if (status === "locked") {
-      return (
-        <span className="inline-flex flex-col gap-0.5">
-          <span className="inline-flex w-fit items-center gap-2 rounded-full bg-amber-50 px-2.5 py-1 text-sm font-medium text-amber-900">
-            <Icons.AlertCircle aria-hidden="true" className="h-4 w-4" />
-            Locked until {user.locked_until}
-          </span>
-          <span className="pl-1 text-xs" style={{ color: brand.neutralColor }}>
-            {user.failed_attempts} failed sign-ins
-          </span>
         </span>
       );
     }
@@ -582,6 +470,10 @@ export default function Screen() {
 
   const fieldClass =
     "mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1";
+
+  if (currentUser && currentUser.role !== "admin") {
+    return null;
+  }
 
   return (
     <div
@@ -607,6 +499,7 @@ export default function Screen() {
           ref={addButtonRef}
           type="button"
           onClick={openAddDialog}
+          disabled={loading}
           className="inline-flex shrink-0 items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
           style={{ backgroundColor: navy, color: "#FFFFFF" }}
         >
@@ -656,55 +549,11 @@ export default function Screen() {
           />
           <StatTile label="Active" value={counts.active} hint="Able to sign in right now" />
           <StatTile
-            label="Locked or disabled"
+            label="Disabled"
             value={counts.attention}
             hint="Cannot sign in until you act"
           />
         </div>
-      </section>
-
-      {/* Self-signup setting ---------------------------------------------- */}
-      <section aria-labelledby="signup-heading" className="mt-6">
-        <Card className="rounded-lg border border-slate-200 bg-white">
-          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="max-w-xl">
-              <h2 id="signup-heading" className="text-base font-semibold" style={{ color: navy }}>
-                Self-service account creation
-              </h2>
-              <p className="mt-1 text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
-                When this is off, the Sign in page offers no “Create account” link and the signup
-                endpoint is refused. Accounts can then only be created here.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-slate-800" id="signup-state">
-                {selfSignup ? "On" : "Off"}
-              </span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={selfSignup}
-                aria-labelledby="signup-heading signup-state"
-                onClick={function () {
-                  const next = !selfSignup;
-                  setSelfSignup(next);
-                  announce(
-                    next
-                      ? "Self-service account creation is on. New visitors can create their own employee account."
-                      : "Self-service account creation is off. Only admins can create accounts.",
-                  );
-                }}
-                className="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border border-slate-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
-                style={{ backgroundColor: selfSignup ? green : "#E2E7EC" }}
-              >
-                <span
-                  className="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
-                  style={{ transform: selfSignup ? "translateX(22px)" : "translateX(3px)" }}
-                />
-              </button>
-            </div>
-          </CardContent>
-        </Card>
       </section>
 
       {/* User list -------------------------------------------------------- */}
@@ -793,29 +642,54 @@ export default function Screen() {
             </div>
           </div>
 
-          {visible.length === 0 ? (
+          {loading ? (
             <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-              <Icons.Users aria-hidden="true" className="h-8 w-8 text-slate-400" />
-              <h3 className="text-base font-semibold text-slate-900">
-                No accounts match these filters
-              </h3>
+              <p className="text-sm" style={{ color: brand.neutralColor }}>
+                Loading accounts…
+              </p>
+            </div>
+          ) : loadError ? (
+            <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+              <Icons.AlertCircle aria-hidden="true" className="h-8 w-8 text-red-600" />
+              <h3 className="text-base font-semibold text-slate-900">Could not load accounts</h3>
               <p className="max-w-sm text-sm" style={{ color: brand.neutralColor }}>
-                Nothing matches “{query.trim() || "the current filters"}”. Try a different search
-                term or clear the filters to see all {users.length} accounts.
+                {loadError}
               </p>
               <Button
                 type="button"
-                onClick={clearFilters}
+                onClick={loadUsers}
                 className="mt-1 inline-flex items-center gap-2 rounded-md border px-3.5 py-2 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
                 style={{ backgroundColor: "#FFFFFF", color: navy, borderColor: "#CBD5E1" }}
               >
-                Clear filters
+                Try again
               </Button>
+            </div>
+          ) : visible.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+              <Icons.Users aria-hidden="true" className="h-8 w-8 text-slate-400" />
+              <h3 className="text-base font-semibold text-slate-900">
+                {users.length === 0 ? "No accounts yet" : "No accounts match these filters"}
+              </h3>
+              <p className="max-w-sm text-sm" style={{ color: brand.neutralColor }}>
+                {users.length === 0
+                  ? "Add the first colleague to get started."
+                  : `Nothing matches “${query.trim() || "the current filters"}”. Try a different search term or clear the filters to see all ${users.length} accounts.`}
+              </p>
+              {users.length > 0 ? (
+                <Button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-1 inline-flex items-center gap-2 rounded-md border px-3.5 py-2 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+                  style={{ backgroundColor: "#FFFFFF", color: navy, borderColor: "#CBD5E1" }}
+                >
+                  Clear filters
+                </Button>
+              ) : null}
             </div>
           ) : (
             <Table className="w-full border-collapse text-left">
               <caption className="sr-only">
-                Knowledge Assistant accounts, with role, status, date added and last activity
+                Knowledge Assistant accounts, with role and status
               </caption>
               <THead>
                 <TR className="border-b border-slate-200">
@@ -842,20 +716,6 @@ export default function Screen() {
                   </TH>
                   <TH
                     scope="col"
-                    className="hidden px-5 py-3 text-xs font-semibold uppercase tracking-wide md:table-cell"
-                    style={{ color: brand.neutralColor }}
-                  >
-                    Added
-                  </TH>
-                  <TH
-                    scope="col"
-                    className="hidden px-5 py-3 text-xs font-semibold uppercase tracking-wide lg:table-cell"
-                    style={{ color: brand.neutralColor }}
-                  >
-                    Last active
-                  </TH>
-                  <TH
-                    scope="col"
                     className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide"
                     style={{ color: brand.neutralColor }}
                   >
@@ -865,9 +725,9 @@ export default function Screen() {
               </THead>
               <TBody>
                 {visible.map(function (user) {
-                  const isSelf = user.id === CURRENT_USER_ID;
-                  const isOpen = openMenuId === user.id;
-                  const status = statusOf(user);
+                  const isSelf = currentUser != null && String(user.id) === String(currentUser.id);
+                  const isOpen = openMenuId != null && String(openMenuId) === String(user.id);
+                  const name = titleCaseFromEmail(user.email);
                   return (
                     <TR key={user.id} className="border-b border-slate-100 align-top last:border-0">
                       <TD className="px-5 py-4">
@@ -877,12 +737,12 @@ export default function Screen() {
                             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
                             style={{ backgroundColor: user.role === "admin" ? navy : "#6A7C90" }}
                           >
-                            {initialsOf(user.name)}
+                            {initialsOf(name)}
                           </span>
                           <span className="min-w-0">
                             <span className="flex items-center gap-2">
                               <span className="truncate text-sm font-semibold text-slate-900">
-                                {user.name}
+                                {name}
                               </span>
                               {isSelf ? (
                                 <span className="rounded border border-slate-300 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
@@ -921,29 +781,15 @@ export default function Screen() {
                         <StatusCell user={user} />
                       </TD>
 
-                      <TD
-                        className="hidden px-5 py-4 text-sm md:table-cell"
-                        style={{ color: brand.neutralColor }}
-                      >
-                        {formatDate(user.created_at)}
-                      </TD>
-
-                      <TD
-                        className="hidden px-5 py-4 text-sm lg:table-cell"
-                        style={{ color: brand.neutralColor }}
-                      >
-                        {user.last_seen || "Never signed in"}
-                      </TD>
-
                       <TD className="relative px-5 py-4 text-right">
                         <button
                           type="button"
                           ref={function (el) {
-                            triggerRefs.current[user.id] = el;
+                            triggerRefs.current[String(user.id)] = el;
                           }}
                           aria-haspopup="menu"
                           aria-expanded={isOpen}
-                          aria-label={`Actions for ${user.name}`}
+                          aria-label={`Actions for ${name}`}
                           onClick={function () {
                             setOpenMenuId(isOpen ? null : user.id);
                           }}
@@ -956,7 +802,7 @@ export default function Screen() {
                           <div
                             ref={menuRef}
                             role="menu"
-                            aria-label={`Actions for ${user.name}`}
+                            aria-label={`Actions for ${name}`}
                             onKeyDown={onMenuKeyDown}
                             className="absolute right-5 z-30 mt-2 w-60 rounded-lg border border-slate-200 bg-white py-1 text-left shadow-lg"
                           >
@@ -971,23 +817,6 @@ export default function Screen() {
                               <Icons.Edit aria-hidden="true" className="h-4 w-4 text-slate-500" />
                               Reset password
                             </button>
-
-                            {status === "locked" ? (
-                              <button
-                                type="button"
-                                role="menuitem"
-                                onClick={function () {
-                                  clearLock(user);
-                                }}
-                                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-slate-800 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
-                              >
-                                <Icons.Check
-                                  aria-hidden="true"
-                                  className="h-4 w-4 text-slate-500"
-                                />
-                                Clear sign-in lock
-                              </button>
-                            ) : null}
 
                             <button
                               type="button"
@@ -1108,6 +937,16 @@ export default function Screen() {
 
             <form onSubmit={submitAddUser} noValidate>
               <div className="space-y-5 px-6 py-5">
+                {addErrors.form ? (
+                  <p
+                    role="alert"
+                    className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                  >
+                    <Icons.AlertCircle aria-hidden="true" className="h-4 w-4" />
+                    {addErrors.form}
+                  </p>
+                ) : null}
+
                 <div>
                   <Label htmlFor="new-email" className="block text-sm font-medium text-slate-800">
                     Work email
@@ -1225,11 +1064,12 @@ export default function Screen() {
                 </Button>
                 <Button
                   type="submit"
+                  disabled={addSubmitting}
                   className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
                   style={{ backgroundColor: navy, color: "#FFFFFF" }}
                 >
                   <Icons.Plus aria-hidden="true" className="h-4 w-4" />
-                  Create account
+                  {addSubmitting ? "Creating…" : "Create account"}
                 </Button>
               </div>
             </form>
@@ -1276,6 +1116,16 @@ export default function Screen() {
 
             <form onSubmit={submitReset} noValidate>
               <div className="space-y-5 px-6 py-5">
+                {resetErrors.form ? (
+                  <p
+                    role="alert"
+                    className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                  >
+                    <Icons.AlertCircle aria-hidden="true" className="h-4 w-4" />
+                    {resetErrors.form}
+                  </p>
+                ) : null}
+
                 <div>
                   <Label htmlFor="reset-new" className="block text-sm font-medium text-slate-800">
                     New password
@@ -1356,11 +1206,12 @@ export default function Screen() {
                 </Button>
                 <Button
                   type="submit"
+                  disabled={resetSubmitting}
                   className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
                   style={{ backgroundColor: navy, color: "#FFFFFF" }}
                 >
                   <Icons.Check aria-hidden="true" className="h-4 w-4" />
-                  Set password
+                  {resetSubmitting ? "Saving…" : "Set password"}
                 </Button>
               </div>
             </form>

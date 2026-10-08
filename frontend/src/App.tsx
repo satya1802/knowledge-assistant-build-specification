@@ -6,7 +6,7 @@ import KnowledgeBase from "@/screens/KnowledgeBase";
 import Account from "@/screens/Account";
 import Users from "@/screens/Users";
 import Docs from "@/screens/Docs";
-import { AuthProvider, RequireAuth } from "@/lib/auth";
+import { AuthProvider, RequireAuth, useAuth } from "@/lib/auth";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -23,6 +23,8 @@ export default function App() {
 }
 
 function AppShell() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   return (
     <div className="flex min-h-screen">
       <aside
@@ -51,9 +53,11 @@ function AppShell() {
           <NavLink to="/account" className={navLinkClass}>
             {"Account"}
           </NavLink>
-          <NavLink to="/users" className={navLinkClass}>
-            {"Users"}
-          </NavLink>
+          {isAdmin ? (
+            <NavLink to="/users" className={navLinkClass}>
+              {"Users"}
+            </NavLink>
+          ) : null}
           <NavLink to="/docs" className={navLinkClass}>
             {"Documentation"}
           </NavLink>
