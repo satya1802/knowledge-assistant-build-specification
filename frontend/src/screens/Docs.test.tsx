@@ -46,9 +46,7 @@ describe("Docs screen", () => {
     await user.keyboard("{ArrowRight}");
     expect(apiTab).toHaveFocus();
     expect(apiTab).toHaveAttribute("aria-selected", "true");
-    expect(
-      screen.getByRole("heading", { name: /^api reference$/i }),
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: /^api reference$/i })).toBeVisible();
   });
 
   it("AC-090: FAQ items expand and collapse on click", async () => {

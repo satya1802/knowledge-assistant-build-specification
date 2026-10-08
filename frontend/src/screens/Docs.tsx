@@ -6,8 +6,23 @@ import { brand } from "@/lib/brand";
 import { useNavigate } from "@/lib/navigate";
 import { API_BASE_URL } from "@/lib/api";
 
-const { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Input, Label, Checkbox, Table, THead, TBody, TR, TH, TD } =
-  UI;
+const {
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Input,
+  Label,
+  Checkbox,
+  Table,
+  THead,
+  TBody,
+  TR,
+  TH,
+  TD,
+} = UI;
 
 const TABS = [
   { id: "guide", label: "Getting started" },
@@ -177,7 +192,8 @@ const ENDPOINTS = [
     path: "/documents",
     access: "Signed in",
     summary: "List every uploaded document.",
-    description: "Returns every document row, newest upload first. There is no filtering or search on this endpoint.",
+    description:
+      "Returns every document row, newest upload first. There is no filtering or search on this endpoint.",
     params: [],
     response:
       '200 OK\n[\n  {\n    "id": "7c1e9a4f2b3d",\n    "filename": "example-document.pdf",\n    "file_type": "pdf",\n    "size_bytes": 1048576,\n    "status": "processing",\n    "uploaded_by": "4f2a1c9e2b7a4d6c",\n    "uploaded_at": "2026-10-08T09:12:00Z"\n  }\n]',
@@ -303,7 +319,8 @@ const ENTITIES = [
   { name: "login_lockouts", fields: "email, failed_count, first_failure_at, locked_until" },
   {
     name: "documents",
-    fields: "id, filename, stored_filename, content_type, file_type, size_bytes, status, uploaded_by, uploaded_at",
+    fields:
+      "id, filename, stored_filename, content_type, file_type, size_bytes, status, uploaded_by, uploaded_at",
   },
 ];
 
@@ -396,10 +413,10 @@ export default function Screen() {
             Knowledge Assistant documentation
           </h1>
           <p className="mt-4 max-w-3xl text-[15px] leading-7" style={mutedText}>
-            Everything on this page is readable without an account and makes no call to the
-            backend. It explains how employees sign in, ask questions and, for administrators,
-            upload documents to the shared knowledge base, and it documents every endpoint the
-            interface uses. No knowledge base content or account data is shown here.
+            Everything on this page is readable without an account and makes no call to the backend.
+            It explains how employees sign in, ask questions and, for administrators, upload
+            documents to the shared knowledge base, and it documents every endpoint the interface
+            uses. No knowledge base content or account data is shown here.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Button
@@ -445,7 +462,11 @@ export default function Screen() {
                 }`}
                 style={
                   selected
-                    ? { borderColor: "var(--brand-primary)", color: "var(--brand-primary)", ...ringStyle }
+                    ? {
+                        borderColor: "var(--brand-primary)",
+                        color: "var(--brand-primary)",
+                        ...ringStyle,
+                      }
                     : { color: "var(--brand-fg-muted)", ...ringStyle }
                 }
               >
@@ -468,10 +489,7 @@ export default function Screen() {
           {tab === "guide" && (
             <div className="grid gap-10 pt-8 lg:grid-cols-4">
               <nav aria-label="On this page" className="lg:col-span-1">
-                <h2
-                  className="text-xs font-semibold uppercase tracking-[0.12em]"
-                  style={mutedText}
-                >
+                <h2 className="text-xs font-semibold uppercase tracking-[0.12em]" style={mutedText}>
                   On this page
                 </h2>
                 <ul className="mt-4 space-y-1 lg:sticky lg:top-6">
@@ -603,7 +621,10 @@ export default function Screen() {
                     <li className="flex gap-3">
                       <span
                         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                        style={{ backgroundColor: "var(--brand-primary)", color: "var(--brand-primary-fg)" }}
+                        style={{
+                          backgroundColor: "var(--brand-primary)",
+                          color: "var(--brand-primary-fg)",
+                        }}
                       >
                         1
                       </span>
@@ -612,7 +633,10 @@ export default function Screen() {
                     <li className="flex gap-3">
                       <span
                         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                        style={{ backgroundColor: "var(--brand-primary)", color: "var(--brand-primary-fg)" }}
+                        style={{
+                          backgroundColor: "var(--brand-primary)",
+                          color: "var(--brand-primary-fg)",
+                        }}
                       >
                         2
                       </span>
@@ -624,14 +648,17 @@ export default function Screen() {
                     <li className="flex gap-3">
                       <span
                         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                        style={{ backgroundColor: "var(--brand-primary)", color: "var(--brand-primary-fg)" }}
+                        style={{
+                          backgroundColor: "var(--brand-primary)",
+                          color: "var(--brand-primary-fg)",
+                        }}
                       >
                         3
                       </span>
                       <span>
                         Change the password you were given on the Account page. Sessions end when
-                        you sign out or after a fixed idle period, so an unattended browser does
-                        not leave the knowledge base open.
+                        you sign out or after a fixed idle period, so an unattended browser does not
+                        leave the knowledge base open.
                       </span>
                     </li>
                   </ol>
@@ -664,10 +691,7 @@ export default function Screen() {
                     the more specific your wording, the easier it is to match against the right
                     passage.
                   </p>
-                  <div
-                    className="mt-5 rounded-lg border p-4"
-                    style={{ ...cardStyle }}
-                  >
+                  <div className="mt-5 rounded-lg border p-4" style={{ ...cardStyle }}>
                     <p className="text-sm font-semibold" style={headingColor}>
                       If nothing relevant has been uploaded yet
                     </p>
@@ -705,8 +729,8 @@ export default function Screen() {
                   <p className={prose} style={mutedText}>
                     The Account page does two things: change your password (current password, then
                     the new one twice, minimum twelve characters) and choose Light, Dark or System.
-                    The appearance changes immediately, follows your operating system when System
-                    is chosen, and is remembered the next time you sign in.
+                    The appearance changes immediately, follows your operating system when System is
+                    chosen, and is remembered the next time you sign in.
                   </p>
                   <p className="mt-3 text-[15px] leading-7" style={mutedText}>
                     Forgotten your password? There is no reset email. An administrator sets a new
@@ -720,7 +744,10 @@ export default function Screen() {
                   </h2>
                   <ul
                     className="mt-4 divide-y overflow-hidden rounded-lg border"
-                    style={{ borderColor: "var(--brand-border)", backgroundColor: "var(--brand-surface)" }}
+                    style={{
+                      borderColor: "var(--brand-border)",
+                      backgroundColor: "var(--brand-surface)",
+                    }}
                   >
                     {FAQS.map((faq) => {
                       const open = openFaq === faq.id;
@@ -739,9 +766,15 @@ export default function Screen() {
                             >
                               <span>{faq.question}</span>
                               {open ? (
-                                <Icons.ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                <Icons.ChevronDown
+                                  className="h-4 w-4 shrink-0"
+                                  aria-hidden="true"
+                                />
                               ) : (
-                                <Icons.ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                <Icons.ChevronRight
+                                  className="h-4 w-4 shrink-0"
+                                  aria-hidden="true"
+                                />
                               )}
                             </button>
                           </h3>
@@ -814,16 +847,17 @@ export default function Screen() {
               </Card>
 
               {/* Filters */}
-              <div
-                className="mt-8 rounded-lg border p-5"
-                style={{ ...cardStyle }}
-              >
+              <div className="mt-8 rounded-lg border p-5" style={{ ...cardStyle }}>
                 <h3 className="text-sm font-semibold" style={headingColor}>
                   Find an endpoint
                 </h3>
                 <div className="mt-4 grid gap-5 md:grid-cols-2">
                   <div>
-                    <Label htmlFor="endpoint-search" className="text-sm font-medium" style={{ color: "var(--brand-fg)" }}>
+                    <Label
+                      htmlFor="endpoint-search"
+                      className="text-sm font-medium"
+                      style={{ color: "var(--brand-fg)" }}
+                    >
                       Search by path or description
                     </Label>
                     <div className="relative mt-2">
@@ -906,7 +940,11 @@ export default function Screen() {
                       className={focusRing}
                       style={ringStyle}
                     />
-                    <Label htmlFor="admin-only" className="text-sm" style={{ color: "var(--brand-fg)" }}>
+                    <Label
+                      htmlFor="admin-only"
+                      className="text-sm"
+                      style={{ color: "var(--brand-fg)" }}
+                    >
                       Admin-only endpoints
                     </Label>
                   </div>
@@ -935,7 +973,10 @@ export default function Screen() {
               {filtered.length === 0 ? (
                 <div
                   className="mt-8 rounded-lg border border-dashed px-6 py-14 text-center"
-                  style={{ borderColor: "var(--brand-border)", backgroundColor: "var(--brand-surface)" }}
+                  style={{
+                    borderColor: "var(--brand-border)",
+                    backgroundColor: "var(--brand-surface)",
+                  }}
                 >
                   <Icons.Search className="mx-auto h-6 w-6" aria-hidden="true" style={mutedText} />
                   <h3 className="mt-4 text-base font-semibold" style={headingColor}>
@@ -966,7 +1007,10 @@ export default function Screen() {
                       <li
                         key={ep.id}
                         className="overflow-hidden rounded-lg border"
-                        style={{ borderColor: "var(--brand-border)", backgroundColor: "var(--brand-surface)" }}
+                        style={{
+                          borderColor: "var(--brand-border)",
+                          backgroundColor: "var(--brand-surface)",
+                        }}
                       >
                         <h3 className="m-0">
                           <button
@@ -980,7 +1024,10 @@ export default function Screen() {
                           >
                             <span
                               className="mt-0.5 w-16 shrink-0 rounded border px-2 py-0.5 text-center text-[11px] font-bold tracking-wider"
-                              style={{ borderColor: "var(--brand-border)", color: "var(--brand-fg)" }}
+                              style={{
+                                borderColor: "var(--brand-border)",
+                                color: "var(--brand-fg)",
+                              }}
                             >
                               {ep.method}
                             </span>
@@ -999,8 +1046,14 @@ export default function Screen() {
                               className="mt-0.5 hidden whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium sm:inline-block"
                               style={
                                 ep.access === "Admin only"
-                                  ? { borderColor: "var(--brand-accent)", color: "var(--brand-accent)" }
-                                  : { borderColor: "var(--brand-border)", color: "var(--brand-fg-muted)" }
+                                  ? {
+                                      borderColor: "var(--brand-accent)",
+                                      color: "var(--brand-accent)",
+                                    }
+                                  : {
+                                      borderColor: "var(--brand-border)",
+                                      color: "var(--brand-fg-muted)",
+                                    }
                               }
                             >
                               {ep.access}
@@ -1061,7 +1114,10 @@ export default function Screen() {
                                         <TD className="text-sm" style={mutedText}>
                                           {p.type}
                                         </TD>
-                                        <TD className="text-sm" style={{ color: "var(--brand-fg)" }}>
+                                        <TD
+                                          className="text-sm"
+                                          style={{ color: "var(--brand-fg)" }}
+                                        >
                                           {p.required ? "Required" : "Optional"}
                                         </TD>
                                         <TD className="text-sm" style={mutedText}>
@@ -1121,7 +1177,10 @@ export default function Screen() {
                     <div
                       key={e.name}
                       className="rounded-lg border p-4"
-                      style={{ borderColor: "var(--brand-border)", backgroundColor: "var(--brand-surface)" }}
+                      style={{
+                        borderColor: "var(--brand-border)",
+                        backgroundColor: "var(--brand-surface)",
+                      }}
                     >
                       <dt className="font-mono text-sm font-semibold" style={headingColor}>
                         {e.name}
