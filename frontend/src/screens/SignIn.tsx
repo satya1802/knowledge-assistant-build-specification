@@ -1,0 +1,688 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import React from "react";
+
+import * as UI from "@/lib/ui";
+import { Icons } from "@/lib/icons";
+import { brand } from "@/lib/brand";
+import { useNavigate } from "@/lib/navigate";
+
+const { Input, Label } = UI;
+const { Check, X, Users, FileText, Clock, ArrowLeft, ArrowRight, AlertCircle, CheckCircle } = Icons;
+
+const ACCOUNTS = [
+  {
+    id: 1,
+    email: "alice.hartley@wexford.co.uk",
+    password: "Wexford-2026",
+    role: "admin",
+    is_enabled: true,
+  },
+  {
+    id: 2,
+    email: "daniel.okafor@wexford.co.uk",
+    password: "Onboarding-2026",
+    role: "employee",
+    is_enabled: true,
+  },
+  {
+    id: 3,
+    email: "priya.raman@wexford.co.uk",
+    password: "Temporary-0914",
+    role: "employee",
+    is_enabled: false,
+  },
+];
+
+const SELF_SIGNUP_ENABLED = true;
+const MIN_PASSWORD_LENGTH = 10;
+const GENERIC_ERROR = "Incorrect email or password.";
+const LOCK_MINUTES = 15;
+const MAX_ATTEMPTS = 5;
+
+const ASSURANCES = [
+  "Ask a question in plain English and get an answer drawn only from Wexford documents.",
+  "Every answer carries numbered source chips linking to the page it came from.",
+  "Your conversation history is private to you and grouped by date.",
+];
+
+export default function Screen() {
+  const navigate = useNavigate();
+  const [accounts, setAccounts] = React.useState(ACCOUNTS);
+  const [tab, setTab] = React.useState("signin");
+
+  // Sign-in form
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [signInError, setSignInError] = React.useState(null);
+
+  // Brute-force tracking, keyed by email
+  const [attempts, setAttempts] = React.useState({});
+
+  // Create-account form
+  const [newEmail, setNewEmail] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [signUpErrors, setSignUpErrors] = React.useState({});
+  const [createdAccount, setCreatedAccount] = React.useState(null);
+
+  const [showExpiredNotice, setShowExpiredNotice] = React.useState(true);
+
+  const tabRefs = { signin: React.useRef(null), signup: React.useRef(null) };
+
+  const tabs = SELF_SIGNUP_ENABLED
+    ? [
+        { id: "signin", label: "Sign in" },
+        { id: "signup", label: "Create account" },
+      ]
+    : [{ id: "signin", label: "Sign in" }];
+
+  const formatTime = (ms) =>
+    new Date(ms).toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  function onTabKeyDown(event, index) {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    const next =
+      event.key === "ArrowRight"
+        ? (index + 1) % tabs.length
+        : (index - 1 + tabs.length) % tabs.length;
+    const id = tabs[next].id;
+    setTab(id);
+    const ref = tabRefs[id];
+    if (ref && ref.current) ref.current.focus();
+  }
+
+  function handleSignIn(event) {
+    event.preventDefault();
+    const key = email.trim().toLowerCase();
+    if (!key || !password) {
+      setSignInError({
+        kind: "validation",
+        message: "Enter both your work email and your password.",
+      });
+      return;
+    }
+
+    const record = attempts[key] || { count: 0, lockedUntil: null };
+    const now = Date.now();
+
+    if (record.lockedUntil && record.lockedUntil > now) {
+      setSignInError({
+        kind: "locked",
+        message:
+          "Too many failed attempts. This email is locked until " +
+          formatTime(record.lockedUntil) +
+          ". Try again after that, or ask an administrator to reset your password.",
+      });
+      return;
+    }
+
+    const cleared =
+      record.lockedUntil && record.lockedUntil <= now
+        ? { count: 0, lockedUntil: null }
+        : record;
+
+    const account = accounts.find((a) => a.email.toLowerCase() === key);
+    const valid = account && account.is_enabled && account.password === password;
+
+    if (valid) {
+      setAttempts((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      setSignInError(null);
+      navigate("chat");
+      return;
+    }
+
+    const count = cleared.count + 1;
+    if (count >= MAX_ATTEMPTS) {
+      const lockedUntil = now + LOCK_MINUTES * 60 * 1000;
+      setAttempts((prev) => ({ ...prev, [key]: { count, lockedUntil } }));
+      setSignInError({
+        kind: "locked",
+        message:
+          "Too many failed attempts. This email is locked until " +
+          formatTime(lockedUntil) +
+          ". Try again after that, or ask an administrator to reset your password.",
+      });
+    } else {
+      setAttempts((prev) => ({
+        ...prev,
+        [key]: { count, lockedUntil: null },
+      }));
+      setSignInError({ kind: "generic", message: GENERIC_ERROR });
+    }
+  }
+
+  function handleSignUp(event) {
+    event.preventDefault();
+    const errors = {};
+    const key = newEmail.trim().toLowerCase();
+
+    if (!key) {
+      errors.email = "Enter your work email address.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) {
+      errors.email = "Enter a valid email address, for example name@wexford.co.uk.";
+    } else if (accounts.some((a) => a.email.toLowerCase() === key)) {
+      errors.email =
+        "An account already exists for this email. Sign in instead, or ask an administrator to reset the password.";
+    }
+
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      errors.password =
+        "Password must be at least " + MIN_PASSWORD_LENGTH + " characters.";
+    }
+    if (confirmPassword !== newPassword) {
+      errors.confirm = "The two passwords do not match.";
+    }
+
+    setSignUpErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    const account = {
+      id: accounts.length + 1,
+      email: key,
+      password: newPassword,
+      role: accounts.length === 0 ? "admin" : "employee",
+      is_enabled: true,
+    };
+    setAccounts((prev) => [...prev, account]);
+    setCreatedAccount(account);
+    setNewEmail("");
+    setNewPassword("");
+    setConfirmPassword("");
+  }
+
+  const fieldClass = "w-full";
+  const focusRing =
+    "focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#14304F]";
+
+  return (
+    <div
+      className="min-h-full w-full"
+      style={{ backgroundColor: brand.backgroundColor, fontFamily: brand.fontBody }}
+    >
+      <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
+        <div className="grid gap-8 lg:grid-cols-[1fr_minmax(420px,520px)] lg:gap-12">
+          {/* Brand panel */}
+          <section
+            className="rounded-xl p-8 text-white sm:p-10"
+            style={{ backgroundColor: brand.primaryColor, borderRadius: "0.75rem" }}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-11 w-11 items-center justify-center rounded-lg text-base font-bold tracking-tight"
+                style={{ backgroundColor: brand.accentColor, color: "#FFFFFF" }}
+                aria-hidden="true"
+              >
+                KA
+              </div>
+              <div>
+                <p className="text-base font-semibold leading-tight">
+                  Knowledge Assistant
+                </p>
+                <p className="text-sm leading-tight text-white/70">
+                  Wexford Group · Internal
+                </p>
+              </div>
+            </div>
+
+            <p
+              className="mt-10 max-w-md text-xl leading-relaxed text-white/90 sm:text-2xl"
+              style={{ fontFamily: brand.fontHeading }}
+            >
+              Answers from the company&rsquo;s own documents, with the source
+              attached.
+            </p>
+
+            <h2 className="mt-10 text-xs font-semibold uppercase tracking-widest text-white/60">
+              What you can do here
+            </h2>
+            <ul className="mt-4 space-y-4">
+              {ASSURANCES.map((item) => (
+                <li key={item} className="flex gap-3">
+                  <span
+                    className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full"
+                    style={{ backgroundColor: brand.accentColor }}
+                    aria-hidden="true"
+                  >
+                    <Icons.Check className="h-3.5 w-3.5 text-white" />
+                  </span>
+                  <span className="text-sm leading-relaxed text-white/85">
+                    {item}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <hr className="mt-10 border-white/15" />
+
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <button
+                type="button"
+                onClick={() => navigate("docs")}
+                className={
+                  "inline-flex items-center gap-2 rounded text-sm font-medium text-white underline underline-offset-4 hover:text-white/80 " +
+                  focusRing +
+                  " focus-visible:ring-white focus-visible:ring-offset-[#14304F]"
+                }
+              >
+                <Icons.FileText className="h-4 w-4" aria-hidden="true" />
+                Getting started
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("docs")}
+                className={
+                  "inline-flex items-center gap-2 rounded text-sm font-medium text-white underline underline-offset-4 hover:text-white/80 " +
+                  focusRing +
+                  " focus-visible:ring-white focus-visible:ring-offset-[#14304F]"
+                }
+              >
+                <Icons.ArrowRight className="h-4 w-4" aria-hidden="true" />
+                API reference
+              </button>
+            </div>
+            <p className="mt-6 text-xs text-white/55">
+              Release 1.4 · No account data leaves Wexford infrastructure.
+            </p>
+          </section>
+
+          {/* Form panel */}
+          <section className="flex flex-col justify-center">
+            <h1
+              className="text-2xl font-semibold tracking-tight sm:text-3xl"
+              style={{ color: brand.primaryColor, fontFamily: brand.fontHeading }}
+            >
+              Sign in to Knowledge Assistant
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
+              Use your Wexford work email. Sessions end automatically after 7 days
+              of inactivity; there is no &ldquo;remember me&rdquo; option.
+            </p>
+
+            {showExpiredNotice && (
+              <div
+                className="mt-6 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4"
+                style={{ borderRadius: brand.radius }}
+              >
+                <Icons.Clock
+                  className="mt-0.5 h-4 w-4 flex-none text-amber-700"
+                  aria-hidden="true"
+                />
+                <p className="flex-1 text-sm leading-relaxed text-amber-900">
+                  <span className="font-semibold">Session ended.</span> You were
+                  signed out after a period of inactivity. Sign in again to return
+                  to Chat.
+                </p>
+                <button
+                  type="button"
+                  aria-label="Dismiss session ended notice"
+                  onClick={() => setShowExpiredNotice(false)}
+                  className={
+                    "-m-1 rounded p-1 text-amber-800 hover:bg-amber-100 " + focusRing
+                  }
+                >
+                  <Icons.X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
+            <div
+              className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+              style={{ borderRadius: "0.75rem" }}
+            >
+              {tabs.length > 1 && (
+                <div
+                  role="tablist"
+                  aria-label="Account access"
+                  className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1"
+                >
+                  {tabs.map((t, index) => {
+                    const selected = tab === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        ref={tabRefs[t.id]}
+                        role="tab"
+                        id={"tab-" + t.id}
+                        type="button"
+                        aria-selected={selected}
+                        aria-controls={"panel-" + t.id}
+                        tabIndex={selected ? 0 : -1}
+                        onKeyDown={(e) => onTabKeyDown(e, index)}
+                        onClick={() => setTab(t.id)}
+                        className={
+                          "rounded-md px-3 py-2 text-sm font-medium transition-colors " +
+                          focusRing +
+                          (selected
+                            ? " bg-white shadow-sm"
+                            : " text-slate-600 hover:text-slate-900")
+                        }
+                        style={selected ? { color: brand.primaryColor } : undefined}
+                      >
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Sign in panel */}
+              {tab === "signin" && (
+                <div
+                  role="tabpanel"
+                  id="panel-signin"
+                  aria-labelledby="tab-signin"
+                  className="pt-6"
+                >
+                  <form onSubmit={handleSignIn} noValidate className="space-y-5">
+                    <div aria-live="assertive">
+                      {signInError && (
+                        <div
+                          className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-4"
+                          style={{ borderRadius: brand.radius }}
+                        >
+                          <Icons.AlertCircle
+                            className="mt-0.5 h-4 w-4 flex-none text-red-700"
+                            aria-hidden="true"
+                          />
+                          <p className="text-sm leading-relaxed text-red-800">
+                            <span className="font-semibold">
+                              {signInError.kind === "locked"
+                                ? "Email locked. "
+                                : "Sign-in failed. "}
+                            </span>
+                            {signInError.message}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <UI.Label htmlFor="signin-email">Work email</UI.Label>
+                      <UI.Input
+                        id="signin-email"
+                        name="email"
+                        type="email"
+                        autoComplete="username"
+                        className={fieldClass}
+                        value={email}
+                        aria-invalid={signInError ? true : undefined}
+                        aria-describedby={signInError ? "signin-help" : undefined}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <UI.Label htmlFor="signin-password">Password</UI.Label>
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-pressed={showPassword}
+                          className={
+                            "rounded text-xs font-medium underline underline-offset-2 " +
+                            focusRing
+                          }
+                          style={{ color: brand.primaryColor }}
+                        >
+                          {showPassword ? "Hide password" : "Show password"}
+                        </button>
+                      </div>
+                      <UI.Input
+                        id="signin-password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="current-password"
+                        className={fieldClass}
+                        value={password}
+                        aria-invalid={signInError ? true : undefined}
+                        aria-describedby={signInError ? "signin-help" : undefined}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    </div>
+
+                    <p id="signin-help" className="text-xs leading-relaxed" style={{ color: brand.neutralColor }}>
+                      After {MAX_ATTEMPTS} failed attempts in {LOCK_MINUTES} minutes,
+                      an email address is locked for {LOCK_MINUTES} minutes.
+                    </p>
+
+                    <button
+                      type="submit"
+                      className={
+                        "w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 " +
+                        focusRing
+                      }
+                      style={{
+                        backgroundColor: brand.primaryColor,
+                        borderRadius: brand.radius,
+                      }}
+                    >
+                      Sign in
+                    </button>
+                  </form>
+
+                  <div
+                    className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4"
+                    style={{ borderRadius: brand.radius }}
+                  >
+                    <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: brand.neutralColor }}>
+                      Pilot environment
+                    </h2>
+                    <dl className="mt-3 space-y-1.5 text-sm">
+                      <div className="flex flex-wrap gap-x-2">
+                        <dt className="font-medium text-slate-700">Email</dt>
+                        <dd className="font-mono text-slate-900">
+                          alice.hartley@wexford.co.uk
+                        </dd>
+                      </div>
+                      <div className="flex flex-wrap gap-x-2">
+                        <dt className="font-medium text-slate-700">Password</dt>
+                        <dd className="font-mono text-slate-900">Wexford-2026</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </div>
+              )}
+
+              {/* Create account panel */}
+              {tab === "signup" && (
+                <div
+                  role="tabpanel"
+                  id="panel-signup"
+                  aria-labelledby="tab-signup"
+                  className="pt-6"
+                >
+                  {createdAccount ? (
+                    <div className="space-y-5">
+                      <div
+                        className="flex items-start gap-3 rounded-lg border p-4"
+                        style={{
+                          borderRadius: brand.radius,
+                          borderColor: brand.accentColor,
+                          backgroundColor: "#EDF6F2",
+                        }}
+                      >
+                        <Icons.CheckCircle
+                          className="mt-0.5 h-4 w-4 flex-none"
+                          style={{ color: "#1F6B50" }}
+                          aria-hidden="true"
+                        />
+                        <div className="text-sm leading-relaxed" style={{ color: "#174535" }}>
+                          <p className="font-semibold">Account created.</p>
+                          <p className="mt-1">
+                            You are signed in as {createdAccount.email} with the{" "}
+                            {createdAccount.role} role.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate("chat")}
+                        className={
+                          "inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 " +
+                          focusRing
+                        }
+                        style={{
+                          backgroundColor: brand.primaryColor,
+                          borderRadius: brand.radius,
+                        }}
+                      >
+                        Continue to Chat
+                        <Icons.ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCreatedAccount(null);
+                          setTab("signin");
+                        }}
+                        className={
+                          "w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 " +
+                          focusRing
+                        }
+                        style={{ borderRadius: brand.radius }}
+                      >
+                        Back to sign in
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSignUp} noValidate className="space-y-5">
+                      <p className="text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
+                        Self-service account creation is currently enabled. New
+                        accounts are given the Employee role.
+                      </p>
+
+                      <div>
+                        <UI.Label htmlFor="signup-email">Work email</UI.Label>
+                        <UI.Input
+                          id="signup-email"
+                          type="email"
+                          autoComplete="email"
+                          className={fieldClass}
+                          value={newEmail}
+                          aria-invalid={signUpErrors.email ? true : undefined}
+                          aria-describedby={
+                            signUpErrors.email ? "signup-email-error" : undefined
+                          }
+                          onChange={(e) => setNewEmail(e.target.value)}
+                        />
+                        {signUpErrors.email && (
+                          <p
+                            id="signup-email-error"
+                            className="mt-2 flex items-start gap-2 text-sm text-red-800"
+                          >
+                            <Icons.AlertCircle
+                              className="mt-0.5 h-4 w-4 flex-none"
+                              aria-hidden="true"
+                            />
+                            {signUpErrors.email}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <UI.Label htmlFor="signup-password">Password</UI.Label>
+                        <UI.Input
+                          id="signup-password"
+                          type="password"
+                          autoComplete="new-password"
+                          className={fieldClass}
+                          value={newPassword}
+                          aria-invalid={signUpErrors.password ? true : undefined}
+                          aria-describedby={
+                            signUpErrors.password
+                              ? "signup-password-error"
+                              : "signup-password-hint"
+                          }
+                          onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                        {signUpErrors.password ? (
+                          <p
+                            id="signup-password-error"
+                            className="mt-2 flex items-start gap-2 text-sm text-red-800"
+                          >
+                            <Icons.AlertCircle
+                              className="mt-0.5 h-4 w-4 flex-none"
+                              aria-hidden="true"
+                            />
+                            {signUpErrors.password}
+                          </p>
+                        ) : (
+                          <p
+                            id="signup-password-hint"
+                            className="mt-2 text-xs"
+                            style={{ color: brand.neutralColor }}
+                          >
+                            At least {MIN_PASSWORD_LENGTH} characters.
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <UI.Label htmlFor="signup-confirm">
+                          Confirm password
+                        </UI.Label>
+                        <UI.Input
+                          id="signup-confirm"
+                          type="password"
+                          autoComplete="new-password"
+                          className={fieldClass}
+                          value={confirmPassword}
+                          aria-invalid={signUpErrors.confirm ? true : undefined}
+                          aria-describedby={
+                            signUpErrors.confirm ? "signup-confirm-error" : undefined
+                          }
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
+                        {signUpErrors.confirm && (
+                          <p
+                            id="signup-confirm-error"
+                            className="mt-2 flex items-start gap-2 text-sm text-red-800"
+                          >
+                            <Icons.AlertCircle
+                              className="mt-0.5 h-4 w-4 flex-none"
+                              aria-hidden="true"
+                            />
+                            {signUpErrors.confirm}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="submit"
+                        className={
+                          "w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 " +
+                          focusRing
+                        }
+                        style={{
+                          backgroundColor: brand.accentColor,
+                          borderRadius: brand.radius,
+                        }}
+                      >
+                        Create account
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <p className="mt-6 text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
+              Forgotten your password? There is no reset email. Contact the IT
+              service desk on extension 4120 and an administrator will set a new
+              one from the Users page.
+            </p>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
