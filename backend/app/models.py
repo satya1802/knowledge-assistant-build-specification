@@ -15,7 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
-__all__ = ["Base", "User", "Session", "LoginLockout"]
+__all__ = ["Base", "User", "Session", "LoginLockout", "Document"]
 
 
 def _uuid() -> str:
@@ -86,3 +86,30 @@ class LoginLockout(Base):
     failed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     first_failure_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
     locked_until: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class Document(Base):
+    """An uploaded source document (KNOW9BAE95-18-1).
+
+    The original file is written to `settings.DOCUMENT_STORAGE_DIR` under a
+    collision-safe generated name (`stored_filename`); `filename` keeps the
+    original name the uploader gave it, which is what the UI and the download
+    response show. Text extraction, chunking and embedding are out of scope
+    this sprint -- every row is created, and stays, at status "processing".
+    """
+
+    __tablename__ = "documents"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    stored_filename: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    content_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="processing")
+    uploaded_by: Mapped[str] = mapped_column(
+        String(32), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    uploaded_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.datetime.utcnow
+    )

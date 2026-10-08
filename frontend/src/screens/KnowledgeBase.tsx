@@ -1,252 +1,69 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from "react";
 
 import * as UI from "@/lib/ui";
 import { Icons } from "@/lib/icons";
 import { brand } from "@/lib/brand";
 import { useNavigate } from "@/lib/navigate";
-
-const { Button, Input, Label, Select, Table, THead, TBody, TR, TH, TD, Stat } = UI;
-const {
-  Search,
-  X,
-  FileText,
-  Package,
-  Clock,
-  Trash,
-  Filter,
-  Download,
-  Upload,
-  AlertCircle,
-  CheckCircle,
-} = Icons;
+import { apiFetch, ApiError, API_BASE_URL } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 const ACCEPTED_EXTENSIONS = ["pdf", "docx", "txt", "md"];
 const MAX_BYTES = 25 * 1024 * 1024;
 
-const INITIAL_DOCUMENTS = [
-  {
-    id: "doc-41",
-    filename: "Employee-Handbook-2026.pdf",
-    file_type: "PDF",
-    size_bytes: 4404019,
-    status: "ready",
-    status_reason: null,
-    chunk_count: 182,
-    uploaded_by: "priya.raman@northgate.co",
-    uploaded_at: "2026-10-08T09:12:00Z",
-  },
-  {
-    id: "doc-40",
-    filename: "Expense-Policy-v7.docx",
-    file_type: "DOCX",
-    size_bytes: 839680,
-    status: "processing",
-    status_reason: "Extracting text and embedding chunks",
-    chunk_count: 0,
-    uploaded_by: "priya.raman@northgate.co",
-    uploaded_at: "2026-10-08T08:40:00Z",
-  },
-  {
-    id: "doc-39",
-    filename: "Q3-Security-Review.pdf",
-    file_type: "PDF",
-    size_bytes: 12163481,
-    status: "failed",
-    status_reason: "Password-protected PDF — remove encryption and upload again",
-    chunk_count: 0,
-    uploaded_by: "marcus.hale@northgate.co",
-    uploaded_at: "2026-10-07T16:21:00Z",
-  },
-  {
-    id: "doc-38",
-    filename: "Supplier-Contract-Acme-2024.pdf",
-    file_type: "PDF",
-    size_bytes: 8911872,
-    status: "ready",
-    status_reason: "12 scanned pages read with Tesseract OCR (English)",
-    chunk_count: 57,
-    uploaded_by: "marcus.hale@northgate.co",
-    uploaded_at: "2026-10-07T14:03:00Z",
-  },
-  {
-    id: "doc-37",
-    filename: "Procurement-Thresholds.docx",
-    file_type: "DOCX",
-    size_bytes: 614400,
-    status: "failed",
-    status_reason: "AI service quota used up — contact an administrator, then upload again",
-    chunk_count: 0,
-    uploaded_by: "priya.raman@northgate.co",
-    uploaded_at: "2026-10-07T11:48:00Z",
-  },
-  {
-    id: "doc-36",
-    filename: "Benefits-Summary-2026.docx",
-    file_type: "DOCX",
-    size_bytes: 1258291,
-    status: "ready",
-    status_reason: null,
-    chunk_count: 48,
-    uploaded_by: "dana.okoye@northgate.co",
-    uploaded_at: "2026-10-06T15:30:00Z",
-  },
-  {
-    id: "doc-35",
-    filename: "Incident-Response-Runbook.md",
-    file_type: "MD",
-    size_bytes: 29286,
-    status: "ready",
-    status_reason: null,
-    chunk_count: 33,
-    uploaded_by: "dana.okoye@northgate.co",
-    uploaded_at: "2026-10-06T10:02:00Z",
-  },
-  {
-    id: "doc-34",
-    filename: "Fire-Safety-Certificate-2019.pdf",
-    file_type: "PDF",
-    size_bytes: 2306867,
-    status: "ready",
-    status_reason: "OCR unavailable: Tesseract is not installed — 4 scanned pages skipped",
-    chunk_count: 11,
-    uploaded_by: "marcus.hale@northgate.co",
-    uploaded_at: "2026-10-05T09:55:00Z",
-  },
-  {
-    id: "doc-33",
-    filename: "Remote-Working-Guidelines.txt",
-    file_type: "TXT",
-    size_bytes: 18944,
-    status: "ready",
-    status_reason: null,
-    chunk_count: 21,
-    uploaded_by: "priya.raman@northgate.co",
-    uploaded_at: "2026-10-03T13:17:00Z",
-  },
-  {
-    id: "doc-32",
-    filename: "Data-Retention-Standard.pdf",
-    file_type: "PDF",
-    size_bytes: 3251200,
-    status: "ready",
-    status_reason: null,
-    chunk_count: 94,
-    uploaded_by: "dana.okoye@northgate.co",
-    uploaded_at: "2026-10-02T17:44:00Z",
-  },
-  {
-    id: "doc-31",
-    filename: "Sales-Playbook-EMEA.docx",
-    file_type: "DOCX",
-    size_bytes: 6291456,
-    status: "ready",
-    status_reason: null,
-    chunk_count: 140,
-    uploaded_by: "marcus.hale@northgate.co",
-    uploaded_at: "2026-10-01T08:26:00Z",
-  },
-  {
-    id: "doc-30",
-    filename: "Onboarding-Checklist.md",
-    file_type: "MD",
-    size_bytes: 14336,
-    status: "ready",
-    status_reason: null,
-    chunk_count: 6,
-    uploaded_by: "priya.raman@northgate.co",
-    uploaded_at: "2026-09-29T12:10:00Z",
-  },
-  {
-    id: "doc-29",
-    filename: "Code-of-Conduct.pdf",
-    file_type: "PDF",
-    size_bytes: 2621440,
-    status: "ready",
-    status_reason: null,
-    chunk_count: 71,
-    uploaded_by: "dana.okoye@northgate.co",
-    uploaded_at: "2026-09-28T16:05:00Z",
-  },
-  {
-    id: "doc-28",
-    filename: "Legacy-Pension-Scheme-1998.pdf",
-    file_type: "PDF",
-    size_bytes: 10171187,
-    status: "ready",
-    status_reason: "38 scanned pages read with Tesseract OCR (English)",
-    chunk_count: 62,
-    uploaded_by: "marcus.hale@northgate.co",
-    uploaded_at: "2026-09-25T11:31:00Z",
-  },
-  {
-    id: "doc-27",
-    filename: "Office-Access-Map.pdf",
-    file_type: "PDF",
-    size_bytes: 972800,
-    status: "ready",
-    status_reason: null,
-    chunk_count: 9,
-    uploaded_by: "priya.raman@northgate.co",
-    uploaded_at: "2026-09-24T09:48:00Z",
-  },
-  {
-    id: "doc-26",
-    filename: "Travel-Booking-Guide.pdf",
-    file_type: "PDF",
-    size_bytes: 1887436,
-    status: "processing",
-    status_reason: "Queued behind 1 other document",
-    chunk_count: 0,
-    uploaded_by: "dana.okoye@northgate.co",
-    uploaded_at: "2026-09-23T14:12:00Z",
-  },
-];
-
-const STATUS_META = {
-  ready: {
-    label: "Ready",
-    icon: "CheckCircle",
-    fg: "#1F6B50",
-    bg: "#E7F2ED",
-    border: "#BFDFD2",
-  },
-  processing: {
-    label: "Processing",
-    icon: "Clock",
-    fg: "#14304F",
-    bg: "#E6ECF2",
-    border: "#C4D1DE",
-  },
-  failed: {
-    label: "Failed",
-    icon: "AlertCircle",
-    fg: "#9A2A1E",
-    bg: "#FBEAE7",
-    border: "#EFC6BF",
-  },
+type ApiDocument = {
+  id: string | number;
+  filename: string;
+  file_type?: string | null;
+  size_bytes?: number | null;
+  status: "processing" | "ready" | "failed" | string;
+  status_reason?: string | null;
+  chunk_count?: number | null;
+  uploaded_by?: string | null;
+  uploaded_at: string;
 };
 
-const CURRENT_USER = "satya.ganaraju@quorq.ai";
+type DocumentsResponse =
+  | ApiDocument[]
+  | {
+      items?: ApiDocument[];
+      total?: number;
+      ready?: number;
+      processing?: number;
+      failed?: number;
+      chunks_indexed?: number;
+    };
 
-function formatSize(bytes) {
+function extractItems(response: DocumentsResponse): ApiDocument[] {
+  if (Array.isArray(response)) return response;
+  if (response && Array.isArray(response.items)) return response.items;
+  return [];
+}
+
+const STATUS_META: Record<string, { label: string; icon: string; fg: string; bg: string; border: string }> = {
+  ready: { label: "Ready", icon: "CheckCircle", fg: "#1F6B50", bg: "#E7F2ED", border: "#BFDFD2" },
+  processing: { label: "Processing", icon: "Clock", fg: "#14304F", bg: "#E6ECF2", border: "#C4D1DE" },
+  failed: { label: "Failed", icon: "AlertCircle", fg: "#9A2A1E", bg: "#FBEAE7", border: "#EFC6BF" },
+};
+
+function formatSize(bytes: number | null | undefined) {
+  if (bytes == null) return "—";
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-function pad(n) {
+function pad(n: number) {
   return n < 10 ? "0" + n : String(n);
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function formatUploaded(iso) {
+function formatUploaded(iso: string) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
   const now = new Date();
   const time = pad(d.getHours()) + ":" + pad(d.getMinutes());
-  const sameDay = (a, b) =>
+  const sameDay = (a: Date, b: Date) =>
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
@@ -256,69 +73,90 @@ function formatUploaded(iso) {
   return d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear();
 }
 
-function estimateChunks(bytes) {
-  return Math.max(1, Math.round(bytes / 4200));
+function extensionOf(filename: string) {
+  const parts = filename.split(".");
+  return parts.length > 1 ? (parts.pop() as string).toLowerCase() : "";
 }
+
+/** Uploads a single file as multipart/form-data. Deliberately bypasses apiFetch,
+ * which always sets a JSON Content-Type -- that would prevent the browser from
+ * attaching the multipart boundary. Credentials are still sent so the session
+ * cookie round-trips, same as apiFetch. */
+async function uploadDocument(file: File): Promise<ApiDocument> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await fetch(`${API_BASE_URL}/documents`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+  if (!response.ok) {
+    let detail = `Upload failed: ${response.status}`;
+    try {
+      const body = await response.clone().json();
+      if (body && typeof body.detail === "string" && body.detail.trim()) {
+        detail = body.detail;
+      }
+    } catch {
+      // No JSON body -- keep the generic message.
+    }
+    throw new ApiError(detail, response.status);
+  }
+  return response.status === 204 ? (undefined as unknown as ApiDocument) : await response.json();
+}
+
+type Notice = { tone: "success" | "info" | "error"; text: string } | null;
 
 export default function Screen() {
   const navigate = useNavigate();
-  const [documents, setDocuments] = React.useState(INITIAL_DOCUMENTS);
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
+  const [documents, setDocuments] = React.useState<ApiDocument[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+
   const [query, setQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [typeFilter, setTypeFilter] = React.useState("all");
-  const [role, setRole] = React.useState("admin");
-  const [uploadErrors, setUploadErrors] = React.useState([]);
-  const [notice, setNotice] = React.useState(null);
+  const [uploadErrors, setUploadErrors] = React.useState<string[]>([]);
+  const [notice, setNotice] = React.useState<Notice>(null);
   const [dragging, setDragging] = React.useState(false);
-  const [pendingDelete, setPendingDelete] = React.useState(null);
+  const [pendingDelete, setPendingDelete] = React.useState<ApiDocument | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
 
-  const nextId = React.useRef(42);
-  const fileInputRef = React.useRef(null);
-  const dialogRef = React.useRef(null);
-  const confirmRef = React.useRef(null);
-  const lastTrigger = React.useRef(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const dialogRef = React.useRef<HTMLDivElement | null>(null);
+  const confirmRef = React.useRef<HTMLButtonElement | null>(null);
+  const lastTrigger = React.useRef<HTMLElement | null>(null);
 
-  const isAdmin = role === "admin";
+  const loadDocuments = React.useCallback(async function () {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const response = await apiFetch<DocumentsResponse>("/documents");
+      setDocuments(extractItems(response));
+    } catch (err) {
+      setLoadError(
+        err instanceof ApiError ? err.message : "Could not load documents. Try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Live ingestion: documents in "processing" settle to "ready" the way the
-  // background worker would, and the tiles follow without a manual refresh.
-  const processingIds = documents.filter((d) => d.status === "processing").map((d) => d.id);
-  const processingKey = processingIds.join("|");
-
-  React.useEffect(() => {
-    if (!processingKey) return undefined;
-    const ids = processingKey.split("|");
-    const timers = ids.map((id, i) =>
-      setTimeout(
-        () => {
-          setDocuments((prev) =>
-            prev.map((d) =>
-              d.id === id && d.status === "processing"
-                ? {
-                    ...d,
-                    status: "ready",
-                    status_reason: null,
-                    chunk_count: estimateChunks(d.size_bytes),
-                  }
-                : d,
-            ),
-          );
-          setNotice({
-            tone: "info",
-            text: "Ingestion finished — a document is now ready to be cited in chat.",
-          });
-        },
-        3600 + i * 2200,
-      ),
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [processingKey]);
+  React.useEffect(
+    function () {
+      loadDocuments();
+    },
+    [loadDocuments],
+  );
 
   // Dialog: focus management, Escape to close, focus returns to the trigger.
   React.useEffect(() => {
     if (!pendingDelete) return undefined;
     if (confirmRef.current) confirmRef.current.focus();
-    const onKeyDown = (e) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         setPendingDelete(null);
@@ -329,8 +167,8 @@ export default function Screen() {
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         );
         if (!focusable.length) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
+        const first = focusable[0] as HTMLElement;
+        const last = focusable[focusable.length - 1] as HTMLElement;
         if (e.shiftKey && document.activeElement === first) {
           e.preventDefault();
           last.focus();
@@ -355,7 +193,7 @@ export default function Screen() {
       ready: documents.filter((d) => d.status === "ready").length,
       processing: documents.filter((d) => d.status === "processing").length,
       failed: documents.filter((d) => d.status === "failed").length,
-      chunks: documents.reduce((sum, d) => sum + d.chunk_count, 0),
+      chunks: documents.reduce((sum, d) => sum + (d.chunk_count || 0), 0),
     };
   }, [documents]);
 
@@ -364,7 +202,11 @@ export default function Screen() {
     return documents
       .filter((d) => (q ? d.filename.toLowerCase().includes(q) : true))
       .filter((d) => (statusFilter === "all" ? true : d.status === statusFilter))
-      .filter((d) => (typeFilter === "all" ? true : d.file_type === typeFilter))
+      .filter((d) =>
+        typeFilter === "all"
+          ? true
+          : (d.file_type || extensionOf(d.filename)).toUpperCase() === typeFilter,
+      )
       .sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
   }, [documents, query, statusFilter, typeFilter]);
 
@@ -376,16 +218,15 @@ export default function Screen() {
     setTypeFilter("all");
   }
 
-  function handleFiles(fileList: FileList | File[] | null) {
+  async function handleFiles(fileList: FileList | File[] | null) {
     const files: File[] = Array.from(fileList || []);
     if (!files.length) return;
+
     const errors: string[] = [];
-    const accepted: (typeof documents)[number][] = [];
-    let duplicate = false;
+    const toUpload: File[] = [];
 
     files.forEach((file: File) => {
-      const parts = file.name.split(".");
-      const ext = parts.length > 1 ? parts.pop().toLowerCase() : "";
+      const ext = extensionOf(file.name);
       if (ACCEPTED_EXTENSIONS.indexOf(ext) === -1) {
         errors.push(
           file.name + " — unsupported format. Accepted formats are PDF, DOCX, TXT and MD.",
@@ -396,33 +237,29 @@ export default function Screen() {
         errors.push(file.name + " — " + formatSize(file.size) + " exceeds the 25 MB limit.");
         return;
       }
-      if (documents.some((d) => d.filename === file.name)) duplicate = true;
-      nextId.current += 1;
-      accepted.push({
-        id: "doc-" + nextId.current,
-        filename: file.name,
-        file_type: ext.toUpperCase(),
-        size_bytes: file.size,
-        status: "processing",
-        status_reason: "Extracting text and embedding chunks",
-        chunk_count: 0,
-        uploaded_by: CURRENT_USER,
-        uploaded_at: new Date().toISOString(),
-      });
+      toUpload.push(file);
     });
 
+    const uploaded: ApiDocument[] = [];
+    for (const file of toUpload) {
+      try {
+        const created = await uploadDocument(file);
+        uploaded.push(created);
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : "Upload failed. Try again.";
+        errors.push(file.name + " — " + message);
+      }
+    }
+
     setUploadErrors(errors);
-    if (accepted.length) {
-      setDocuments((prev) => [...accepted, ...prev]);
+    if (uploaded.length) {
+      setDocuments((prev) => [...uploaded, ...prev]);
       setNotice({
         tone: "success",
         text:
-          accepted.length +
-          (accepted.length === 1 ? " file accepted" : " files accepted") +
-          " and queued for processing." +
-          (duplicate
-            ? " A document with the same filename already existed, so a separate new document was created."
-            : ""),
+          uploaded.length +
+          (uploaded.length === 1 ? " file accepted" : " files accepted") +
+          " and queued for processing.",
       });
     } else if (errors.length) {
       setNotice(null);
@@ -430,32 +267,31 @@ export default function Screen() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function handleDownload(doc) {
-    setNotice({
-      tone: "info",
-      text:
-        "Downloading the original file “" +
-        doc.filename +
-        "” (" +
-        formatSize(doc.size_bytes) +
-        ").",
-    });
-  }
-
-  function confirmDelete() {
+  async function confirmDelete() {
     const doc = pendingDelete;
     if (!doc) return;
-    setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
-    setNotice({
-      tone: "info",
-      text:
-        "“" +
-        doc.filename +
-        "” was deleted, along with its stored file and " +
-        doc.chunk_count +
-        " indexed chunks.",
-    });
-    closeDialog();
+    setDeleting(true);
+    try {
+      await apiFetch<void>(`/documents/${doc.id}`, { method: "DELETE" });
+      setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+      setNotice({
+        tone: "info",
+        text:
+          "“" +
+          doc.filename +
+          "” was deleted, along with its stored file and " +
+          (doc.chunk_count || 0) +
+          " indexed chunks.",
+      });
+      closeDialog();
+    } catch (err) {
+      setNotice({
+        tone: "error",
+        text: err instanceof ApiError ? err.message : "Could not delete the document. Try again.",
+      });
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const focusRing =
@@ -511,44 +347,6 @@ export default function Screen() {
         </div>
       </div>
 
-      {/* Role preview — mirrors what an employee without admin rights sees */}
-      <div className="mt-6 flex flex-wrap items-center gap-3 rounded-lg border border-[#DCE3EA] bg-white px-4 py-3">
-        <span className="text-sm font-medium">Viewing this page as</span>
-        <div
-          className="flex gap-1 rounded-md bg-[#EDF1F5] p-1"
-          role="group"
-          aria-label="Preview the page with a different role"
-        >
-          {[
-            { key: "admin", label: "Administrator" },
-            { key: "employee", label: "Employee" },
-          ].map((opt) => {
-            const active = role === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setRole(opt.key)}
-                className={"rounded px-3 py-1.5 text-sm font-medium " + focusRing}
-                style={
-                  active
-                    ? { backgroundColor: brand.primaryColor, color: "#FFFFFF" }
-                    : { color: brand.neutralColor }
-                }
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-sm" style={{ color: brand.neutralColor }}>
-          {isAdmin
-            ? "Upload and delete controls are shown."
-            : "Upload and delete are hidden; the API refuses them too."}
-        </p>
-      </div>
-
       {/* Stat tiles */}
       <section aria-labelledby="kb-overview-heading" className="mt-8">
         <h2 id="kb-overview-heading" className="sr-only">
@@ -584,13 +382,27 @@ export default function Screen() {
             role="status"
             className="flex items-start justify-between gap-4 rounded-lg border px-4 py-3 text-sm"
             style={{
-              borderColor: notice.tone === "success" ? "#BFDFD2" : "#C4D1DE",
-              backgroundColor: notice.tone === "success" ? "#E7F2ED" : "#EDF1F5",
-              color: brand.primaryColor,
+              borderColor:
+                notice.tone === "success"
+                  ? "#BFDFD2"
+                  : notice.tone === "error"
+                    ? "#EFC6BF"
+                    : "#C4D1DE",
+              backgroundColor:
+                notice.tone === "success"
+                  ? "#E7F2ED"
+                  : notice.tone === "error"
+                    ? "#FBEAE7"
+                    : "#EDF1F5",
+              color: notice.tone === "error" ? "#9A2A1E" : brand.primaryColor,
             }}
           >
             <span className="flex items-start gap-2">
-              <Icons.CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              {notice.tone === "error" ? (
+                <Icons.AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <Icons.CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              )}
               <span>{notice.text}</span>
             </span>
             <button
@@ -796,8 +608,37 @@ export default function Screen() {
           </div>
         </div>
 
-        {/* Table or empty state */}
-        {documents.length === 0 ? (
+        {/* Table, loading, error or empty state */}
+        {loading ? (
+          <div className="mt-4 rounded-lg border border-[#DCE3EA] bg-white px-6 py-16 text-center">
+            <p className="text-sm" style={{ color: brand.neutralColor }}>
+              Loading documents…
+            </p>
+          </div>
+        ) : loadError ? (
+          <div className="mt-4 rounded-lg border border-[#DCE3EA] bg-white px-6 py-16 text-center">
+            <Icons.AlertCircle
+              className="mx-auto h-8 w-8"
+              aria-hidden="true"
+              style={{ color: "#9A2A1E" }}
+            />
+            <h3 className="mt-4 text-base font-semibold">Could not load documents</h3>
+            <p className="mx-auto mt-2 max-w-md text-sm" style={{ color: brand.neutralColor }}>
+              {loadError}
+            </p>
+            <UI.Button
+              type="button"
+              onClick={loadDocuments}
+              className={
+                "mt-5 inline-flex items-center gap-2 rounded-md border border-[#C9D3DC] bg-white px-4 py-2 text-sm font-medium " +
+                focusRing
+              }
+              style={{ color: brand.primaryColor }}
+            >
+              Try again
+            </UI.Button>
+          </div>
+        ) : documents.length === 0 ? (
           <div className="mt-4 rounded-lg border border-[#DCE3EA] bg-white px-6 py-16 text-center">
             <Icons.Package
               className="mx-auto h-8 w-8"
@@ -869,8 +710,9 @@ export default function Screen() {
               </UI.THead>
               <UI.TBody>
                 {visible.map((doc) => {
-                  const meta = STATUS_META[doc.status];
+                  const meta = STATUS_META[doc.status] || STATUS_META.processing;
                   const StatusIcon = Icons[meta.icon];
+                  const fileType = (doc.file_type || extensionOf(doc.filename)).toUpperCase();
                   return (
                     <UI.TR
                       key={doc.id}
@@ -885,12 +727,14 @@ export default function Screen() {
                           />
                           <span className="min-w-0">
                             <span className="block break-all">{doc.filename}</span>
-                            <span
-                              className="mt-1 block text-xs font-normal"
-                              style={{ color: brand.neutralColor }}
-                            >
-                              Added by {doc.uploaded_by}
-                            </span>
+                            {doc.uploaded_by ? (
+                              <span
+                                className="mt-1 block text-xs font-normal"
+                                style={{ color: brand.neutralColor }}
+                              >
+                                Added by {doc.uploaded_by}
+                              </span>
+                            ) : null}
                             {doc.status_reason ? (
                               <span
                                 className="mt-1 block text-xs font-normal"
@@ -905,7 +749,7 @@ export default function Screen() {
                         </span>
                       </UI.TH>
                       <UI.TD className="px-4 py-4" style={{ color: brand.neutralColor }}>
-                        {doc.file_type}
+                        {fileType}
                       </UI.TD>
                       <UI.TD
                         className="px-4 py-4 text-right tabular-nums"
@@ -936,13 +780,12 @@ export default function Screen() {
                         className="px-4 py-4 text-right tabular-nums"
                         style={{ color: brand.neutralColor }}
                       >
-                        {doc.status === "ready" ? doc.chunk_count.toLocaleString() : "—"}
+                        {doc.status === "ready" ? (doc.chunk_count || 0).toLocaleString() : "—"}
                       </UI.TD>
                       <UI.TD className="px-4 py-4">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleDownload(doc)}
+                          <a
+                            href={`${API_BASE_URL}/documents/${doc.id}/download`}
                             aria-label={"Download original file " + doc.filename}
                             className={
                               "rounded-md border border-[#C9D3DC] p-2 hover:bg-[#EDF1F5] " +
@@ -954,7 +797,7 @@ export default function Screen() {
                               aria-hidden="true"
                               style={{ color: brand.primaryColor }}
                             />
-                          </button>
+                          </a>
                           {isAdmin ? (
                             <button
                               type="button"
@@ -1015,13 +858,14 @@ export default function Screen() {
               style={{ color: brand.neutralColor }}
             >
               “{pendingDelete.filename}” will be removed along with its stored original file and{" "}
-              {pendingDelete.chunk_count.toLocaleString()} indexed chunks. Answers will stop citing
-              it straight away. This cannot be undone.
+              {(pendingDelete.chunk_count || 0).toLocaleString()} indexed chunks. Answers will stop
+              citing it straight away. This cannot be undone.
             </p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <UI.Button
                 type="button"
                 onClick={closeDialog}
+                disabled={deleting}
                 className={
                   "rounded-md border border-[#C9D3DC] bg-white px-4 py-2 text-sm font-medium " +
                   focusRing
@@ -1034,14 +878,15 @@ export default function Screen() {
                 type="button"
                 ref={confirmRef}
                 onClick={confirmDelete}
+                disabled={deleting}
                 className={
-                  "inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white " +
+                  "inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 " +
                   focusRing
                 }
                 style={{ backgroundColor: "#9A2A1E" }}
               >
                 <Icons.Trash className="h-4 w-4" aria-hidden="true" />
-                Delete document
+                {deleting ? "Deleting…" : "Delete document"}
               </UI.Button>
             </div>
           </div>

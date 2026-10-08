@@ -4,6 +4,7 @@ One pair per entity in the approved data model, plus the placeholder every
 generated route returns until it has been implemented.
 """
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, field_validator
@@ -92,6 +93,20 @@ class MessageResponse(BaseModel):
     """A plain success acknowledgement, e.g. for logout."""
 
     detail: str
+
+
+class DocumentOut(BaseModel):
+    """What POST /documents and GET /documents ever say about a document."""
+
+    id: str
+    filename: str
+    file_type: str
+    size_bytes: int
+    status: str
+    uploaded_by: str | None
+    uploaded_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class StubResponse(BaseModel):

@@ -67,6 +67,12 @@ class Settings:
     # out of the box; an admin sets this to 0 to hide/disable it.
     SELF_SIGNUP_ENABLED: bool = _as_bool(os.getenv("SELF_SIGNUP_ENABLED"), default=True)
 
+    # Filesystem directory the original bytes of every uploaded document are
+    # written to (KNOW9BAE95-18-1). Relative paths are resolved against the
+    # process's working directory (normally `backend/`). Created on first use
+    # if it does not already exist.
+    DOCUMENT_STORAGE_DIR: str = os.getenv("DOCUMENT_STORAGE_DIR", "./storage/documents")
+
     def __init__(self) -> None:
         # Fail fast: a service that starts without a key, then falls over on
         # its first chat request, is far worse than one that never starts.
