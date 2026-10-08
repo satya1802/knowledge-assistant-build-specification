@@ -5,33 +5,17 @@ import * as UI from "@/lib/ui";
 import { Icons } from "@/lib/icons";
 import { brand } from "@/lib/brand";
 import { useNavigate } from "@/lib/navigate";
+import { apiFetch } from "@/lib/api";
 
 const { Input, Label } = UI;
 const { Check, X, Users, FileText, Clock, ArrowLeft, ArrowRight, AlertCircle, CheckCircle } = Icons;
 
-const ACCOUNTS = [
-  {
-    id: 1,
-    email: "alice.hartley@wexford.co.uk",
-    password: "Wexford-2026",
-    role: "admin",
-    is_enabled: true,
-  },
-  {
-    id: 2,
-    email: "daniel.okafor@wexford.co.uk",
-    password: "Onboarding-2026",
-    role: "employee",
-    is_enabled: true,
-  },
-  {
-    id: 3,
-    email: "priya.raman@wexford.co.uk",
-    password: "Temporary-0914",
-    role: "employee",
-    is_enabled: false,
-  },
-];
+type AuthUser = {
+  id: string | number;
+  email: string;
+  role: string;
+  is_enabled: boolean;
+};
 
 const SELF_SIGNUP_ENABLED = true;
 const MIN_PASSWORD_LENGTH = 10;
@@ -47,7 +31,6 @@ const ASSURANCES = [
 
 export default function Screen() {
   const navigate = useNavigate();
-  const [accounts, setAccounts] = React.useState(ACCOUNTS);
   const [tab, setTab] = React.useState("signin");
 
   // Sign-in form
@@ -55,16 +38,15 @@ export default function Screen() {
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
   const [signInError, setSignInError] = React.useState(null);
-
-  // Brute-force tracking, keyed by email
-  const [attempts, setAttempts] = React.useState({});
+  const [signInLoading, setSignInLoading] = React.useState(false);
 
   // Create-account form
   const [newEmail, setNewEmail] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [signUpErrors, setSignUpErrors] = React.useState<Record<string, string>>({});
-  const [createdAccount, setCreatedAccount] = React.useState(null);
+  const [signUpLoading, setSignUpLoading] = React.useState(false);
+  const [createdAccount, setCreatedAccount] = React.useState<AuthUser | null>(null);
 
   const [showExpiredNotice, setShowExpiredNotice] = React.useState(true);
 
@@ -77,11 +59,21 @@ export default function Screen() {
       ]
     : [{ id: "signin", label: "Sign in" }];
 
-  const formatTime = (ms) =>
-    new Date(ms).toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  // Restore an existing session on load: if the HTTP-only cookie is still valid
+  // the server will say who it belongs to and we can skip straight to Chat.
+  React.useEffect(function () {
+    let cancelled = false;
+    apiFetch<AuthUser>("/auth/me")
+      .then(function (user) {
+        if (!cancelled && user) navigate("chat");
+      })
+      .catch(function () {
+        // Not signed in -- stay on this screen. Nothing to surface to the user.
+      });
+    return function () {
+      cancelled = true;
+    };
+  }, []);
 
   function onTabKeyDown(event, index) {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
@@ -96,9 +88,9 @@ export default function Screen() {
     if (ref && ref.current) ref.current.focus();
   }
 
-  function handleSignIn(event) {
+  async function handleSignIn(event) {
     event.preventDefault();
-    const key = email.trim().toLowerCase();
+    const key = email.trim();
     if (!key || !password) {
       setSignInError({
         kind: "validation",
@@ -107,69 +99,32 @@ export default function Screen() {
       return;
     }
 
-    const record = attempts[key] || { count: 0, lockedUntil: null };
-    const now = Date.now();
-
-    if (record.lockedUntil && record.lockedUntil > now) {
-      setSignInError({
-        kind: "locked",
-        message:
-          "Too many failed attempts. This email is locked until " +
-          formatTime(record.lockedUntil) +
-          ". Try again after that, or ask an administrator to reset your password.",
+    setSignInError(null);
+    setSignInLoading(true);
+    try {
+      await apiFetch<AuthUser>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: key, password }),
       });
-      return;
-    }
-
-    const cleared =
-      record.lockedUntil && record.lockedUntil <= now ? { count: 0, lockedUntil: null } : record;
-
-    const account = accounts.find((a) => a.email.toLowerCase() === key);
-    const valid = account && account.is_enabled && account.password === password;
-
-    if (valid) {
-      setAttempts((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      setSignInError(null);
+      setSignInLoading(false);
       navigate("chat");
-      return;
-    }
-
-    const count = cleared.count + 1;
-    if (count >= MAX_ATTEMPTS) {
-      const lockedUntil = now + LOCK_MINUTES * 60 * 1000;
-      setAttempts((prev) => ({ ...prev, [key]: { count, lockedUntil } }));
-      setSignInError({
-        kind: "locked",
-        message:
-          "Too many failed attempts. This email is locked until " +
-          formatTime(lockedUntil) +
-          ". Try again after that, or ask an administrator to reset your password.",
-      });
-    } else {
-      setAttempts((prev) => ({
-        ...prev,
-        [key]: { count, lockedUntil: null },
-      }));
+    } catch (err) {
+      // Any rejection -- wrong password, unknown email, or a disabled account --
+      // renders the same generic message. Never indicate which field was wrong.
+      setSignInLoading(false);
       setSignInError({ kind: "generic", message: GENERIC_ERROR });
     }
   }
 
-  function handleSignUp(event) {
+  async function handleSignUp(event) {
     event.preventDefault();
     const errors: Record<string, string> = {};
-    const key = newEmail.trim().toLowerCase();
+    const key = newEmail.trim();
 
     if (!key) {
       errors.email = "Enter your work email address.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) {
       errors.email = "Enter a valid email address, for example name@wexford.co.uk.";
-    } else if (accounts.some((a) => a.email.toLowerCase() === key)) {
-      errors.email =
-        "An account already exists for this email. Sign in instead, or ask an administrator to reset the password.";
     }
 
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
@@ -182,18 +137,24 @@ export default function Screen() {
     setSignUpErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    const account = {
-      id: accounts.length + 1,
-      email: key,
-      password: newPassword,
-      role: accounts.length === 0 ? "admin" : "employee",
-      is_enabled: true,
-    };
-    setAccounts((prev) => [...prev, account]);
-    setCreatedAccount(account);
-    setNewEmail("");
-    setNewPassword("");
-    setConfirmPassword("");
+    setSignUpLoading(true);
+    try {
+      const user = await apiFetch<AuthUser>("/auth/signup", {
+        method: "POST",
+        body: JSON.stringify({ email: key, password: newPassword }),
+      });
+      setSignUpLoading(false);
+      setCreatedAccount(user);
+      setNewEmail("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setSignUpLoading(false);
+      setSignUpErrors({
+        email:
+          "An account already exists for this email, or it could not be created. Sign in instead, or ask an administrator to reset the password.",
+      });
+    }
   }
 
   const fieldClass = "w-full";
@@ -382,8 +343,8 @@ export default function Screen() {
                           />
                           <p className="text-sm leading-relaxed text-red-800">
                             <span className="font-semibold">
-                              {signInError.kind === "locked"
-                                ? "Email locked. "
+                              {signInError.kind === "validation"
+                                ? "Check the form. "
                                 : "Sign-in failed. "}
                             </span>
                             {signInError.message}
@@ -446,8 +407,9 @@ export default function Screen() {
 
                     <button
                       type="submit"
+                      disabled={signInLoading}
                       className={
-                        "w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 " +
+                        "w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 " +
                         focusRing
                       }
                       style={{
@@ -455,31 +417,9 @@ export default function Screen() {
                         borderRadius: brand.radius,
                       }}
                     >
-                      Sign in
+                      {signInLoading ? "Signing in…" : "Sign in"}
                     </button>
                   </form>
-
-                  <div
-                    className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4"
-                    style={{ borderRadius: brand.radius }}
-                  >
-                    <h2
-                      className="text-xs font-semibold uppercase tracking-widest"
-                      style={{ color: brand.neutralColor }}
-                    >
-                      Pilot environment
-                    </h2>
-                    <dl className="mt-3 space-y-1.5 text-sm">
-                      <div className="flex flex-wrap gap-x-2">
-                        <dt className="font-medium text-slate-700">Email</dt>
-                        <dd className="font-mono text-slate-900">alice.hartley@wexford.co.uk</dd>
-                      </div>
-                      <div className="flex flex-wrap gap-x-2">
-                        <dt className="font-medium text-slate-700">Password</dt>
-                        <dd className="font-mono text-slate-900">Wexford-2026</dd>
-                      </div>
-                    </dl>
-                  </div>
                 </div>
               )}
 
@@ -547,8 +487,8 @@ export default function Screen() {
                   ) : (
                     <form onSubmit={handleSignUp} noValidate className="space-y-5">
                       <p className="text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
-                        Self-service account creation is currently enabled. New accounts are given
-                        the Employee role.
+                        Self-service account creation is currently enabled. The role shown after
+                        creation is assigned by the server.
                       </p>
 
                       <div>
@@ -643,8 +583,9 @@ export default function Screen() {
 
                       <button
                         type="submit"
+                        disabled={signUpLoading}
                         className={
-                          "w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 " +
+                          "w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60 " +
                           focusRing
                         }
                         style={{
@@ -652,7 +593,7 @@ export default function Screen() {
                           borderRadius: brand.radius,
                         }}
                       >
-                        Create account
+                        {signUpLoading ? "Creating account…" : "Create account"}
                       </button>
                     </form>
                   )}
