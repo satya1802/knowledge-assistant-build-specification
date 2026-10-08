@@ -9,6 +9,10 @@ python-dotenv>=1.0,<2.0
 google-genai>=0.3,<1.0
 python-multipart>=0.0.9,<1.0
 
+# Document ingestion (US-010-1): text extraction for PDF and DOCX.
+pypdf==5.0.1
+python-docx==1.1.2
+
 # Checks. The platform installs and runs this file before it reports that the
 # generated tests pass, so the test dependencies belong here rather than in a
 # second file nobody installs. httpx is what fastapi.testclient runs on.
