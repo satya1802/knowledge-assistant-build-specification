@@ -13,6 +13,28 @@
 // time.
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+/** Thrown by apiFetch for any non-2xx response. `message` is the server's own
+ * error detail when the response body provided one, so screens can show the
+ * exact text the backend chose rather than a generic client-side guess. */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+type UnauthorizedHandler = () => void;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+/** Registered once by the auth provider so a 401 from anywhere -- not just
+ * the screen that happens to be mounted -- clears client auth state and
+ * sends the user back to Sign in. */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  unauthorizedHandler = handler;
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   // Session-cookie auth: every call sends credentials so the HTTP-only cookie the
   // backend sets on login round-trips on subsequent requests, including across
@@ -23,7 +45,19 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   if (!response.ok) {
-    throw new Error(`${init?.method ?? "GET"} ${path} failed: ${response.status}`);
+    let detail = `${init?.method ?? "GET"} ${path} failed: ${response.status}`;
+    try {
+      const body = await response.clone().json();
+      if (body && typeof body.detail === "string" && body.detail.trim()) {
+        detail = body.detail;
+      }
+    } catch {
+      // No JSON body (or not valid JSON) -- keep the generic message.
+    }
+    if (response.status === 401 && unauthorizedHandler) {
+      unauthorizedHandler();
+    }
+    throw new ApiError(detail, response.status);
   }
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }

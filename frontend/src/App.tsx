@@ -6,6 +6,7 @@ import KnowledgeBase from "@/screens/KnowledgeBase";
 import Account from "@/screens/Account";
 import Users from "@/screens/Users";
 import Docs from "@/screens/Docs";
+import { AuthProvider, RequireAuth } from "@/lib/auth";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -14,6 +15,14 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   ].join(" ");
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
+  );
+}
+
+function AppShell() {
   return (
     <div className="flex min-h-screen">
       <aside
@@ -53,10 +62,38 @@ export default function App() {
       <main className="flex-1 overflow-auto">
         <Routes>
           <Route path="/sign-in" element={<SignIn />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/knowledge-base" element={<KnowledgeBase />} />
-          <Route path="/account" element={<Account />} />
-          <Route path="/users" element={<Users />} />
+          <Route
+            path="/chat"
+            element={
+              <RequireAuth>
+                <Chat />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/knowledge-base"
+            element={
+              <RequireAuth>
+                <KnowledgeBase />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <RequireAuth>
+                <Account />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <RequireAuth>
+                <Users />
+              </RequireAuth>
+            }
+          />
           <Route path="/docs" element={<Docs />} />
           <Route path="*" element={<Navigate to="/sign-in" replace />} />
         </Routes>

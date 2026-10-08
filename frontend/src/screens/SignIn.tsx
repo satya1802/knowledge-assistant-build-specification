@@ -5,7 +5,8 @@ import * as UI from "@/lib/ui";
 import { Icons } from "@/lib/icons";
 import { brand } from "@/lib/brand";
 import { useNavigate } from "@/lib/navigate";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiError } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 const { Input, Label } = UI;
 const { Check, X, Users, FileText, Clock, ArrowLeft, ArrowRight, AlertCircle, CheckCircle } = Icons;
@@ -31,6 +32,7 @@ const ASSURANCES = [
 
 export default function Screen() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const [tab, setTab] = React.useState("signin");
 
   // Sign-in form
@@ -63,16 +65,15 @@ export default function Screen() {
   // the server will say who it belongs to and we can skip straight to Chat.
   React.useEffect(function () {
     let cancelled = false;
-    apiFetch<AuthUser>("/auth/me")
+    auth
+      .refresh()
       .then(function (user) {
         if (!cancelled && user) navigate("chat");
-      })
-      .catch(function () {
-        // Not signed in -- stay on this screen. Nothing to surface to the user.
       });
     return function () {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function onTabKeyDown(event, index) {
@@ -102,17 +103,20 @@ export default function Screen() {
     setSignInError(null);
     setSignInLoading(true);
     try {
-      await apiFetch<AuthUser>("/auth/login", {
+      const user = await apiFetch<AuthUser>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email: key, password }),
       });
+      auth.setUser(user);
       setSignInLoading(false);
       navigate("chat");
     } catch (err) {
       // Any rejection -- wrong password, unknown email, or a disabled account --
-      // renders the same generic message. Never indicate which field was wrong.
+      // renders the same single message the server returned. Never indicate
+      // which field was wrong.
       setSignInLoading(false);
-      setSignInError({ kind: "generic", message: GENERIC_ERROR });
+      const message = err instanceof ApiError && err.message ? err.message : GENERIC_ERROR;
+      setSignInError({ kind: "generic", message });
     }
   }
 

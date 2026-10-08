@@ -42,6 +42,18 @@ class Settings:
     SESSION_COOKIE_SECURE: bool = _as_bool(os.getenv("SESSION_COOKIE_SECURE"), default=False)
     SESSION_TTL_SECONDS: int = int(os.getenv("SESSION_TTL_SECONDS", str(60 * 60 * 24 * 7)))
 
+    # Idle expiry: no "remember me" -- this window always applies, independent
+    # of SESSION_TTL_SECONDS above (AC-011). Defaults to 30 minutes.
+    SESSION_IDLE_SECONDS: int = int(os.getenv("SESSION_IDLE_SECONDS", str(30 * 60)))
+
+    # Per-email login lockout (AC-005/AC-006/AC-007): counters and the lock
+    # itself live in the database, not memory, so they survive a restart.
+    LOGIN_LOCKOUT_THRESHOLD: int = int(os.getenv("LOGIN_LOCKOUT_THRESHOLD", "5"))
+    LOGIN_LOCKOUT_WINDOW_SECONDS: int = int(os.getenv("LOGIN_LOCKOUT_WINDOW_SECONDS", "900"))
+    LOGIN_LOCKOUT_DURATION_SECONDS: int = int(
+        os.getenv("LOGIN_LOCKOUT_DURATION_SECONDS", "900")
+    )
+
     # Gemini. GEMINI_OFFLINE selects the deterministic local stub provider over
     # the real client (contract: callers never branch on offline mode
     # themselves -- `app.services.llm.get_provider()` does that once, here).

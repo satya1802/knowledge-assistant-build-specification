@@ -2,18 +2,20 @@
 
 `User` and `Session` back real email/password authentication: a user row per
 account, a session row per logged-in browser, looked up by the opaque token
-carried in the session cookie.
+carried in the session cookie. `LoginLockout` tracks failed sign-in attempts
+per email, server-side, so lockout state survives a process restart
+(KNOW9BAE95-14-1).
 """
 
 import datetime
 import uuid
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
-__all__ = ["Base", "User", "Session"]
+__all__ = ["Base", "User", "Session", "LoginLockout"]
 
 
 def _uuid() -> str:
@@ -40,17 +42,43 @@ class User(Base):
 
 
 class Session(Base):
-    """A logged-in browser. Its id is the opaque value stored in the cookie."""
+    """A logged-in browser. Its id is the opaque UUID value stored in the cookie.
+
+    `last_activity_at` backs idle expiry (AC-011): updated on every
+    authenticated request, checked against `SESSION_IDLE_SECONDS`
+    independently of `expires_at` (the absolute session TTL).
+    """
 
     __tablename__ = "sessions"
 
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.datetime.utcnow
     )
+    last_activity_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.datetime.utcnow
+    )
     expires_at: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="sessions")
+
+
+class LoginLockout(Base):
+    """Per-email failed sign-in tracking (AC-005/006/007).
+
+    Server-side and keyed by email, not IP, and stored in the database so it
+    survives a process restart. `first_failure_at` anchors the rolling
+    window: once it is older than `LOGIN_LOCKOUT_WINDOW_SECONDS`, the next
+    failure starts a fresh window and count. `locked_until`, once set, blocks
+    every attempt -- correct password or not -- until it elapses.
+    """
+
+    __tablename__ = "login_lockouts"
+
+    email: Mapped[str] = mapped_column(String(320), primary_key=True)
+    failed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    first_failure_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    locked_until: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
