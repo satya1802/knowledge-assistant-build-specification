@@ -4,7 +4,9 @@ One pair per entity in the approved data model, plus the placeholder every
 generated route returns until it has been implemented.
 """
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, field_validator
 
 # Plain `str` rather than `pydantic.EmailStr`: the latter needs the
 # `email-validator` package, which is not an approved new dependency for this
@@ -32,8 +34,36 @@ class UserOut(BaseModel):
     email: str
     role: str
     is_enabled: bool
+    theme: str
 
     model_config = {"from_attributes": True}
+
+
+# Matches the minimum length the Account screen states and enforces
+# client-side (AC-079): keep these two in sync if either changes.
+PASSWORD_MIN_LENGTH = 12
+
+
+class ChangePasswordRequest(BaseModel):
+    """POST /account/password body."""
+
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def _min_length(cls, value: str) -> str:
+        if len(value) < PASSWORD_MIN_LENGTH:
+            raise ValueError(
+                f"New password must be at least {PASSWORD_MIN_LENGTH} characters"
+            )
+        return value
+
+
+class ThemeRequest(BaseModel):
+    """PUT /account/theme body."""
+
+    theme: Literal["light", "dark", "system"]
 
 
 class ConfigOut(BaseModel):

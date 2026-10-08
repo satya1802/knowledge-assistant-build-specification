@@ -1,18 +1,57 @@
 @import "tailwindcss";
 
+/*
+ * One shared palette, as CSS custom properties, consumed by every screen and
+ * by the component kit (ui.tsx) and app shell (App.tsx). The `data-theme`
+ * attribute on <html> -- set once, above the screen level, by
+ * lib/theme.tsx -- selects which block below applies; nothing here is
+ * per-screen. Brand colours (navy / green) stay constant across themes;
+ * only surfaces, text and borders invert. Red and amber are reserved for
+ * error and warning states.
+ */
 :root {
-  --brand-primary: #14304F;
-  --brand-accent: #2F8F6B;
-  --brand-neutral: #5E6B7A;
+  --brand-primary: #344794;
+  --brand-primary-fg: #ffffff;
+  --brand-accent: #45a56d;
+  --brand-accent-fg: #0b2117;
+  --brand-neutral: #5e6b7a;
   --brand-radius: 0.5rem;
   --brand-font-heading: Inter, system-ui, sans-serif;
   --brand-font-body: Inter, system-ui, sans-serif;
+
+  --brand-background: #f5f7f9;
   --brand-surface: #ffffff;
-  --brand-border: #e2e8f0;
-  --brand-fg: #0f172a;
-  --brand-fg-muted: #64748b;
+  --brand-surface-muted: #eef2f6;
+  --brand-border: #d9e0e8;
+  --brand-fg: #152434;
+  --brand-fg-heading: #14304f;
+  --brand-fg-muted: #5e6b7a;
   --brand-hover: #f1f5f9;
-  --brand-background: #F5F7F9;
+
+  --brand-success-fg: #1f6b4a;
+  --brand-success-bg: #e7f3ee;
+  --brand-danger-fg: #9a2a24;
+  --brand-danger-bg: #fbeae8;
+  --brand-warning-fg: #8a5a10;
+  --brand-warning-bg: #fcf2df;
+}
+
+[data-theme="dark"] {
+  --brand-background: #0e1a28;
+  --brand-surface: #152536;
+  --brand-surface-muted: #1c2f43;
+  --brand-border: #2a3f57;
+  --brand-fg: #e9eff5;
+  --brand-fg-heading: #ffffff;
+  --brand-fg-muted: #a6b7c8;
+  --brand-hover: #1c2f43;
+
+  --brand-success-fg: #8cd9b6;
+  --brand-success-bg: #153328;
+  --brand-danger-fg: #f5a9a2;
+  --brand-danger-bg: #3a1e1c;
+  --brand-warning-fg: #f0cb85;
+  --brand-warning-bg: #352714;
 }
 
 body {

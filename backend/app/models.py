@@ -32,6 +32,10 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="employee")
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Appearance preference (AC-080): persisted so it survives a reload and a
+    # later sign-in, not just kept in browser storage. One of "light", "dark",
+    # "system" -- enforced in the request schema, not here.
+    theme: Mapped[str] = mapped_column(String(20), nullable=False, default="system")
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.datetime.utcnow
     )
