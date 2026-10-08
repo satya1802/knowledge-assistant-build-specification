@@ -54,9 +54,7 @@ class ChangePasswordRequest(BaseModel):
     @classmethod
     def _min_length(cls, value: str) -> str:
         if len(value) < PASSWORD_MIN_LENGTH:
-            raise ValueError(
-                f"New password must be at least {PASSWORD_MIN_LENGTH} characters"
-            )
+            raise ValueError(f"New password must be at least {PASSWORD_MIN_LENGTH} characters")
         return value
 
 

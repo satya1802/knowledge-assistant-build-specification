@@ -468,116 +468,114 @@ export default function Screen() {
                   className="pt-6"
                 >
                   <form onSubmit={handleSignUp} noValidate className="space-y-5">
-                      <p className="text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
-                        Self-service account creation is currently enabled. The role shown after
-                        creation is assigned by the server.
-                      </p>
+                    <p className="text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
+                      Self-service account creation is currently enabled. The role shown after
+                      creation is assigned by the server.
+                    </p>
 
-                      <div>
-                        <UI.Label htmlFor="signup-email">Work email</UI.Label>
-                        <UI.Input
-                          id="signup-email"
-                          type="email"
-                          autoComplete="email"
-                          className={fieldClass}
-                          value={newEmail}
-                          aria-invalid={signUpErrors.email ? true : undefined}
-                          aria-describedby={signUpErrors.email ? "signup-email-error" : undefined}
-                          onChange={(e) => setNewEmail(e.target.value)}
-                        />
-                        {signUpErrors.email && (
-                          <p
-                            id="signup-email-error"
-                            className="mt-2 flex items-start gap-2 text-sm text-red-800"
-                          >
-                            <Icons.AlertCircle
-                              className="mt-0.5 h-4 w-4 flex-none"
-                              aria-hidden="true"
-                            />
-                            {signUpErrors.email}
-                          </p>
-                        )}
-                      </div>
+                    <div>
+                      <UI.Label htmlFor="signup-email">Work email</UI.Label>
+                      <UI.Input
+                        id="signup-email"
+                        type="email"
+                        autoComplete="email"
+                        className={fieldClass}
+                        value={newEmail}
+                        aria-invalid={signUpErrors.email ? true : undefined}
+                        aria-describedby={signUpErrors.email ? "signup-email-error" : undefined}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                      />
+                      {signUpErrors.email && (
+                        <p
+                          id="signup-email-error"
+                          className="mt-2 flex items-start gap-2 text-sm text-red-800"
+                        >
+                          <Icons.AlertCircle
+                            className="mt-0.5 h-4 w-4 flex-none"
+                            aria-hidden="true"
+                          />
+                          {signUpErrors.email}
+                        </p>
+                      )}
+                    </div>
 
-                      <div>
-                        <UI.Label htmlFor="signup-password">Password</UI.Label>
-                        <UI.Input
-                          id="signup-password"
-                          type="password"
-                          autoComplete="new-password"
-                          className={fieldClass}
-                          value={newPassword}
-                          aria-invalid={signUpErrors.password ? true : undefined}
-                          aria-describedby={
-                            signUpErrors.password ? "signup-password-error" : "signup-password-hint"
-                          }
-                          onChange={(e) => setNewPassword(e.target.value)}
-                        />
-                        {signUpErrors.password ? (
-                          <p
-                            id="signup-password-error"
-                            className="mt-2 flex items-start gap-2 text-sm text-red-800"
-                          >
-                            <Icons.AlertCircle
-                              className="mt-0.5 h-4 w-4 flex-none"
-                              aria-hidden="true"
-                            />
-                            {signUpErrors.password}
-                          </p>
-                        ) : (
-                          <p
-                            id="signup-password-hint"
-                            className="mt-2 text-xs"
-                            style={{ color: brand.neutralColor }}
-                          >
-                            At least {MIN_PASSWORD_LENGTH} characters.
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <UI.Label htmlFor="signup-confirm">Confirm password</UI.Label>
-                        <UI.Input
-                          id="signup-confirm"
-                          type="password"
-                          autoComplete="new-password"
-                          className={fieldClass}
-                          value={confirmPassword}
-                          aria-invalid={signUpErrors.confirm ? true : undefined}
-                          aria-describedby={
-                            signUpErrors.confirm ? "signup-confirm-error" : undefined
-                          }
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                        />
-                        {signUpErrors.confirm && (
-                          <p
-                            id="signup-confirm-error"
-                            className="mt-2 flex items-start gap-2 text-sm text-red-800"
-                          >
-                            <Icons.AlertCircle
-                              className="mt-0.5 h-4 w-4 flex-none"
-                              aria-hidden="true"
-                            />
-                            {signUpErrors.confirm}
-                          </p>
-                        )}
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={signUpLoading}
-                        className={
-                          "w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60 " +
-                          focusRing
+                    <div>
+                      <UI.Label htmlFor="signup-password">Password</UI.Label>
+                      <UI.Input
+                        id="signup-password"
+                        type="password"
+                        autoComplete="new-password"
+                        className={fieldClass}
+                        value={newPassword}
+                        aria-invalid={signUpErrors.password ? true : undefined}
+                        aria-describedby={
+                          signUpErrors.password ? "signup-password-error" : "signup-password-hint"
                         }
-                        style={{
-                          backgroundColor: brand.accentColor,
-                          borderRadius: brand.radius,
-                        }}
-                      >
-                        {signUpLoading ? "Creating account…" : "Create account"}
-                      </button>
-                    </form>
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                      {signUpErrors.password ? (
+                        <p
+                          id="signup-password-error"
+                          className="mt-2 flex items-start gap-2 text-sm text-red-800"
+                        >
+                          <Icons.AlertCircle
+                            className="mt-0.5 h-4 w-4 flex-none"
+                            aria-hidden="true"
+                          />
+                          {signUpErrors.password}
+                        </p>
+                      ) : (
+                        <p
+                          id="signup-password-hint"
+                          className="mt-2 text-xs"
+                          style={{ color: brand.neutralColor }}
+                        >
+                          At least {MIN_PASSWORD_LENGTH} characters.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <UI.Label htmlFor="signup-confirm">Confirm password</UI.Label>
+                      <UI.Input
+                        id="signup-confirm"
+                        type="password"
+                        autoComplete="new-password"
+                        className={fieldClass}
+                        value={confirmPassword}
+                        aria-invalid={signUpErrors.confirm ? true : undefined}
+                        aria-describedby={signUpErrors.confirm ? "signup-confirm-error" : undefined}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                      {signUpErrors.confirm && (
+                        <p
+                          id="signup-confirm-error"
+                          className="mt-2 flex items-start gap-2 text-sm text-red-800"
+                        >
+                          <Icons.AlertCircle
+                            className="mt-0.5 h-4 w-4 flex-none"
+                            aria-hidden="true"
+                          />
+                          {signUpErrors.confirm}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={signUpLoading}
+                      className={
+                        "w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60 " +
+                        focusRing
+                      }
+                      style={{
+                        backgroundColor: brand.accentColor,
+                        borderRadius: brand.radius,
+                      }}
+                    >
+                      {signUpLoading ? "Creating account…" : "Create account"}
+                    </button>
+                  </form>
                 </div>
               )}
             </div>
