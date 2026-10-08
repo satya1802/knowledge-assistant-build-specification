@@ -12,6 +12,7 @@ user.
 import mimetypes
 import uuid
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -45,6 +46,12 @@ _GENERIC_CONTENT_TYPES = {"", "application/octet-stream", "binary/octet-stream"}
 # buffering the whole upload in memory first.
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 _CHUNK_SIZE = 1024 * 1024
+
+# Module-level singleton: ruff's B008 flags a `File(...)` call sitting
+# directly in an argument default, so the call is made once here instead and
+# referenced via `Annotated`, matching the pattern used for `Depends` in
+# app/routers/auth.py.
+UploadFileParam = Annotated[UploadFile, File(...)]
 
 
 def _storage_dir() -> Path:
@@ -82,7 +89,7 @@ def list_documents(current_user: CurrentUser, db: DbSession) -> list[Document]:
 async def upload_document(
     admin: AdminUser,
     db: DbSession,
-    file: UploadFile = File(...),
+    file: UploadFileParam,
 ) -> Document:
     original_filename = file.filename or ""
     ext = _validate_format(original_filename, file.content_type)
@@ -113,8 +120,10 @@ async def upload_document(
             detail="File exceeds the 25 MB size limit",
         )
 
-    content_type = file.content_type or mimetypes.guess_type(original_filename)[0] or (
-        "application/octet-stream"
+    content_type = (
+        file.content_type
+        or mimetypes.guess_type(original_filename)[0]
+        or ("application/octet-stream")
     )
 
     document = Document(
