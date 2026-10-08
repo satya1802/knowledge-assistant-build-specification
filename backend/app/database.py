@@ -10,7 +10,7 @@ the real thing when it exists; nothing else has to change.
 import os
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
@@ -18,9 +18,17 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 # SQLite rejects a connection made on one thread and used on another, which is
 # exactly what happens when FastAPI runs a sync dependency in its threadpool.
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+_IS_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://", "postgresql+"))
 
 engine = create_engine(DATABASE_URL, connect_args=_connect_args, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+if _IS_POSTGRES:
+    # Additive, idempotent: enables the `vector` type/operators pgvector-backed
+    # embedding storage needs (AC-103). A no-op on every start after the first.
+    with engine.connect() as _conn:
+        _conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        _conn.commit()
 
 
 class Base(DeclarativeBase):

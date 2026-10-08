@@ -1,0 +1,19 @@
+# Optional: a local Postgres with pgvector preinstalled, for AC-103
+# (DATABASE_URL pointed at this switches embedding storage to pgvector with
+# no code change). Not required for the default SQLite path -- `make dev`
+# never touches this file.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: knowledge
+      POSTGRES_PASSWORD: knowledge
+      POSTGRES_DB: knowledge
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
