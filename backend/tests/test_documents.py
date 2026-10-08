@@ -17,7 +17,9 @@ def _make_user(role: str) -> tuple[str, str]:
     email = f"{uuid.uuid4().hex}@example.com"
     db = SessionLocal()
     try:
-        user = User(email=email, password_hash=_hash_password(_PASSWORD), role=role, is_enabled=True)
+        user = User(
+            email=email, password_hash=_hash_password(_PASSWORD), role=role, is_enabled=True
+        )
         db.add(user)
         db.commit()
     finally:

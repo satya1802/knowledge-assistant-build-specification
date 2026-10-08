@@ -39,9 +39,18 @@ function extractItems(response: DocumentsResponse): ApiDocument[] {
   return [];
 }
 
-const STATUS_META: Record<string, { label: string; icon: string; fg: string; bg: string; border: string }> = {
+const STATUS_META: Record<
+  string,
+  { label: string; icon: string; fg: string; bg: string; border: string }
+> = {
   ready: { label: "Ready", icon: "CheckCircle", fg: "#1F6B50", bg: "#E7F2ED", border: "#BFDFD2" },
-  processing: { label: "Processing", icon: "Clock", fg: "#14304F", bg: "#E6ECF2", border: "#C4D1DE" },
+  processing: {
+    label: "Processing",
+    icon: "Clock",
+    fg: "#14304F",
+    bg: "#E6ECF2",
+    border: "#C4D1DE",
+  },
   failed: { label: "Failed", icon: "AlertCircle", fg: "#9A2A1E", bg: "#FBEAE7", border: "#EFC6BF" },
 };
 
@@ -137,9 +146,7 @@ export default function Screen() {
       const response = await apiFetch<DocumentsResponse>("/documents");
       setDocuments(extractItems(response));
     } catch (err) {
-      setLoadError(
-        err instanceof ApiError ? err.message : "Could not load documents. Try again.",
-      );
+      setLoadError(err instanceof ApiError ? err.message : "Could not load documents. Try again.");
     } finally {
       setLoading(false);
     }

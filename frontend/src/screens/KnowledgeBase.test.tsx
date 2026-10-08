@@ -95,9 +95,7 @@ describe("KnowledgeBase screen", () => {
     renderScreen();
     expect(screen.getByText(/loading documents/i)).toBeInTheDocument();
     resolve({ items: [] });
-    await waitFor(() =>
-      expect(screen.queryByText(/loading documents/i)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByText(/loading documents/i)).not.toBeInTheDocument());
   });
 
   it("shows an error state when GET /documents fails, with a retry", async () => {
@@ -143,7 +141,9 @@ describe("KnowledgeBase screen", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderScreen();
-    await waitFor(() => expect(screen.getByText(/the knowledge base is empty/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/the knowledge base is empty/i)).toBeInTheDocument(),
+    );
 
     const input = document.getElementById("kb-file-input") as HTMLInputElement;
     await user.upload(input, pdfFile("New-Policy.pdf", 1024));
@@ -167,7 +167,9 @@ describe("KnowledgeBase screen", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderScreen();
-    await waitFor(() => expect(screen.getByText(/the knowledge base is empty/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/the knowledge base is empty/i)).toBeInTheDocument(),
+    );
 
     const input = document.getElementById("kb-file-input") as HTMLInputElement;
     const badFile = new File(["x"], "image.png", { type: "image/png" });
@@ -197,7 +199,9 @@ describe("KnowledgeBase screen", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderScreen();
-    await waitFor(() => expect(screen.getByText(/the knowledge base is empty/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/the knowledge base is empty/i)).toBeInTheDocument(),
+    );
 
     const input = document.getElementById("kb-file-input") as HTMLInputElement;
     await user.upload(input, pdfFile("Broken.pdf", 2048));
@@ -215,7 +219,9 @@ describe("KnowledgeBase screen", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderScreen();
-    await waitFor(() => expect(screen.getByText(/the knowledge base is empty/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/the knowledge base is empty/i)).toBeInTheDocument(),
+    );
 
     const input = document.getElementById("kb-file-input") as HTMLInputElement;
     const bigFile = pdfFile("Huge.pdf", 26 * 1024 * 1024);
