@@ -7,7 +7,19 @@ import { brand } from "@/lib/brand";
 import { useNavigate } from "@/lib/navigate";
 
 const { Button, Card, CardContent, Input, Label, Table, THead, TBody, TR, TH, TD } = UI;
-const { Plus, Search, Check, X, User, Users, Settings, Edit, AlertCircle, CheckCircle, MoreHorizontal } = Icons;
+const {
+  Plus,
+  Search,
+  Check,
+  X,
+  User,
+  Users,
+  Settings,
+  Edit,
+  AlertCircle,
+  CheckCircle,
+  MoreHorizontal,
+} = Icons;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -151,7 +163,16 @@ const STATUS_FILTERS = [
 ];
 
 const PASSWORD_MIN = 10;
-const PASSWORD_WORDS = ["harbour", "lantern", "meadow", "quartz", "ledger", "bramble", "cobalt", "pennant"];
+const PASSWORD_WORDS = [
+  "harbour",
+  "lantern",
+  "meadow",
+  "quartz",
+  "ledger",
+  "bramble",
+  "cobalt",
+  "pennant",
+];
 
 function formatDate(iso) {
   const parts = String(iso).split("-");
@@ -207,11 +228,11 @@ export default function Screen() {
   const [addEmail, setAddEmail] = React.useState("");
   const [addPassword, setAddPassword] = React.useState("");
   const [addIsAdmin, setAddIsAdmin] = React.useState(false);
-  const [addErrors, setAddErrors] = React.useState({});
+  const [addErrors, setAddErrors] = React.useState<Record<string, string>>({});
 
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
-  const [resetErrors, setResetErrors] = React.useState({});
+  const [resetErrors, setResetErrors] = React.useState<Record<string, string>>({});
 
   const menuRef = React.useRef(null);
   const triggerRefs = React.useRef({});
@@ -230,12 +251,18 @@ export default function Screen() {
     function () {
       return {
         total: users.length,
-        admins: users.filter(function (u) { return u.role === "admin"; }).length,
-        active: users.filter(function (u) { return statusOf(u) === "active"; }).length,
-        attention: users.filter(function (u) { return statusOf(u) !== "active"; }).length,
+        admins: users.filter(function (u) {
+          return u.role === "admin";
+        }).length,
+        active: users.filter(function (u) {
+          return statusOf(u) === "active";
+        }).length,
+        attention: users.filter(function (u) {
+          return statusOf(u) !== "active";
+        }).length,
       };
     },
-    [users]
+    [users],
   );
 
   const visible = React.useMemo(
@@ -249,7 +276,7 @@ export default function Screen() {
         return matchesQuery && matchesRole && matchesStatus;
       });
     },
-    [users, query, roleFilter, statusFilter]
+    [users, query, roleFilter, statusFilter],
   );
 
   const filtersActive = query.trim() !== "" || roleFilter !== "all" || statusFilter !== "all";
@@ -269,7 +296,7 @@ export default function Screen() {
         document.removeEventListener("mousedown", onPointerDown);
       };
     },
-    [openMenuId]
+    [openMenuId],
   );
 
   React.useEffect(
@@ -278,7 +305,7 @@ export default function Screen() {
       const first = menuRef.current.querySelector('[role="menuitem"]:not([aria-disabled="true"])');
       if (first) first.focus();
     },
-    [openMenuId]
+    [openMenuId],
   );
 
   function closeMenu(focusTrigger) {
@@ -297,10 +324,15 @@ export default function Screen() {
     event.preventDefault();
     const items = Array.prototype.slice
       .call(menuRef.current.querySelectorAll('[role="menuitem"]'))
-      .filter(function (el) { return el.getAttribute("aria-disabled") !== "true"; });
+      .filter(function (el) {
+        return el.getAttribute("aria-disabled") !== "true";
+      });
     if (!items.length) return;
     const index = items.indexOf(document.activeElement);
-    const next = event.key === "ArrowDown" ? (index + 1) % items.length : (index - 1 + items.length) % items.length;
+    const next =
+      event.key === "ArrowDown"
+        ? (index + 1) % items.length
+        : (index - 1 + items.length) % items.length;
     items[next].focus();
   }
 
@@ -309,14 +341,14 @@ export default function Screen() {
     function () {
       if (addOpen && addFirstFieldRef.current) addFirstFieldRef.current.focus();
     },
-    [addOpen]
+    [addOpen],
   );
 
   React.useEffect(
     function () {
       if (resetUser && resetFirstFieldRef.current) resetFirstFieldRef.current.focus();
     },
-    [resetUser]
+    [resetUser],
   );
 
   function trapKeyDown(ref, onClose) {
@@ -328,7 +360,7 @@ export default function Screen() {
       }
       if (event.key !== "Tab" || !ref.current) return;
       const focusable = ref.current.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]'
+        "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]",
       );
       if (!focusable.length) return;
       const first = focusable[0];
@@ -386,7 +418,7 @@ export default function Screen() {
     announce(
       nextRole === "admin"
         ? `${user.email} is now an admin. They can upload and delete documents and manage users.`
-        : `Admin rights removed from ${user.email}. They keep employee access to chat and the knowledge base.`
+        : `Admin rights removed from ${user.email}. They keep employee access to chat and the knowledge base.`,
     );
     closeMenu(true);
   }
@@ -396,14 +428,17 @@ export default function Screen() {
     setUsers(function (prev) {
       return prev.map(function (u) {
         return u.id === user.id
-          ? Object.assign({}, u, { is_enabled: nextEnabled, locked_until: nextEnabled ? u.locked_until : null })
+          ? Object.assign({}, u, {
+              is_enabled: nextEnabled,
+              locked_until: nextEnabled ? u.locked_until : null,
+            })
           : u;
       });
     });
     announce(
       nextEnabled
         ? `${user.email} is enabled again and can sign in.`
-        : `${user.email} is disabled. Their active session is rejected on the next request.`
+        : `${user.email} is disabled. Their active session is rejected on the next request.`,
     );
     closeMenu(true);
   }
@@ -411,7 +446,9 @@ export default function Screen() {
   function clearLock(user) {
     setUsers(function (prev) {
       return prev.map(function (u) {
-        return u.id === user.id ? Object.assign({}, u, { locked_until: null, failed_attempts: 0 }) : u;
+        return u.id === user.id
+          ? Object.assign({}, u, { locked_until: null, failed_attempts: 0 })
+          : u;
       });
     });
     announce(`Sign-in lock cleared for ${user.email}. They can try again straight away.`);
@@ -420,13 +457,17 @@ export default function Screen() {
 
   function submitAddUser(event) {
     event.preventDefault();
-    const errors = {};
+    const errors: Record<string, string> = {};
     const email = addEmail.trim().toLowerCase();
     if (!email) {
       errors.email = "Enter a work email address.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.email = "Enter a valid email address, for example name@quorq.ai.";
-    } else if (users.some(function (u) { return u.email.toLowerCase() === email; })) {
+    } else if (
+      users.some(function (u) {
+        return u.email.toLowerCase() === email;
+      })
+    ) {
       errors.email = "An account already exists for this email address.";
     }
     if (addPassword.length < PASSWORD_MIN) {
@@ -435,7 +476,10 @@ export default function Screen() {
     setAddErrors(errors);
     if (Object.keys(errors).length) return;
 
-    const nextId = users.reduce(function (max, u) { return Math.max(max, u.id); }, 0) + 1;
+    const nextId =
+      users.reduce(function (max, u) {
+        return Math.max(max, u.id);
+      }, 0) + 1;
     const created = {
       id: nextId,
       name: titleCaseFromEmail(email),
@@ -447,19 +491,19 @@ export default function Screen() {
       created_at: "2026-10-08",
       last_seen: null,
     };
-    setUsers(function (prev) { return [created].concat(prev); });
+    setUsers(function (prev) {
+      return [created].concat(prev);
+    });
     setQuery("");
     setRoleFilter("all");
     setStatusFilter("all");
-    announce(
-      `Account created for ${email}. No email is sent — give them the password directly.`
-    );
+    announce(`Account created for ${email}. No email is sent — give them the password directly.`);
     closeAddDialog();
   }
 
   function submitReset(event) {
     event.preventDefault();
-    const errors = {};
+    const errors: Record<string, string> = {};
     if (newPassword.length < PASSWORD_MIN) {
       errors.newPassword = `The new password must be at least ${PASSWORD_MIN} characters.`;
     }
@@ -472,7 +516,9 @@ export default function Screen() {
     const target = resetUser;
     setUsers(function (prev) {
       return prev.map(function (u) {
-        return u.id === target.id ? Object.assign({}, u, { locked_until: null, failed_attempts: 0 }) : u;
+        return u.id === target.id
+          ? Object.assign({}, u, { locked_until: null, failed_attempts: 0 })
+          : u;
       });
     });
     announce(`Password reset for ${target.email}. Any sign-in lock has been cleared.`);
@@ -545,12 +591,16 @@ export default function Screen() {
       {/* Heading ---------------------------------------------------------- */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <h1 className="text-3xl font-semibold tracking-tight" style={{ color: navy, fontFamily: brand.fontHeading }}>
+          <h1
+            className="text-3xl font-semibold tracking-tight"
+            style={{ color: navy, fontFamily: brand.fontHeading }}
+          >
             Users
           </h1>
           <p className="mt-2 text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
-            Add colleagues, grant or remove admin rights, disable leavers and reset forgotten passwords.
-            Knowledge Assistant sends no email, so pass new and reset passwords on directly.
+            Add colleagues, grant or remove admin rights, disable leavers and reset forgotten
+            passwords. Knowledge Assistant sends no email, so pass new and reset passwords on
+            directly.
           </p>
         </div>
         <Button
@@ -572,11 +622,17 @@ export default function Screen() {
             className="flex items-start gap-3 rounded-lg border bg-white px-4 py-3"
             style={{ borderColor: green }}
           >
-            <Icons.CheckCircle aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" style={{ color: green }} />
+            <Icons.CheckCircle
+              aria-hidden="true"
+              className="mt-0.5 h-5 w-5 shrink-0"
+              style={{ color: green }}
+            />
             <p className="flex-1 text-sm leading-relaxed text-slate-800">{notice}</p>
             <button
               type="button"
-              onClick={function () { setNotice(null); }}
+              onClick={function () {
+                setNotice(null);
+              }}
               aria-label="Dismiss this message"
               className="rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
             >
@@ -593,9 +649,17 @@ export default function Screen() {
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile label="Accounts" value={counts.total} hint="All employee and admin accounts" />
-          <StatTile label="Admins" value={counts.admins} hint="Can upload, delete and manage users" />
+          <StatTile
+            label="Admins"
+            value={counts.admins}
+            hint="Can upload, delete and manage users"
+          />
           <StatTile label="Active" value={counts.active} hint="Able to sign in right now" />
-          <StatTile label="Locked or disabled" value={counts.attention} hint="Cannot sign in until you act" />
+          <StatTile
+            label="Locked or disabled"
+            value={counts.attention}
+            hint="Cannot sign in until you act"
+          />
         </div>
       </section>
 
@@ -608,8 +672,8 @@ export default function Screen() {
                 Self-service account creation
               </h2>
               <p className="mt-1 text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
-                When this is off, the Sign in page offers no “Create account” link and the signup endpoint is
-                refused. Accounts can then only be created here.
+                When this is off, the Sign in page offers no “Create account” link and the signup
+                endpoint is refused. Accounts can then only be created here.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -627,7 +691,7 @@ export default function Screen() {
                   announce(
                     next
                       ? "Self-service account creation is on. New visitors can create their own employee account."
-                      : "Self-service account creation is off. Only admins can create accounts."
+                      : "Self-service account creation is off. Only admins can create accounts.",
                   );
                 }}
                 className="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border border-slate-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
@@ -648,7 +712,11 @@ export default function Screen() {
         <div className="rounded-lg border border-slate-200 bg-white">
           <div className="flex flex-col gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h2 id="list-heading" className="text-lg font-semibold" style={{ color: navy, fontFamily: brand.fontHeading }}>
+              <h2
+                id="list-heading"
+                className="text-lg font-semibold"
+                style={{ color: navy, fontFamily: brand.fontHeading }}
+              >
                 All accounts
               </h2>
               <p className="mt-1 text-sm" style={{ color: brand.neutralColor }}>
@@ -670,7 +738,9 @@ export default function Screen() {
                     id="user-search"
                     type="search"
                     value={query}
-                    onChange={function (e) { setQuery(e.target.value); }}
+                    onChange={function (e) {
+                      setQuery(e.target.value);
+                    }}
                     placeholder="Name or email"
                     className={fieldClass + " pl-9"}
                   />
@@ -684,7 +754,9 @@ export default function Screen() {
                 <select
                   id="role-filter"
                   value={roleFilter}
-                  onChange={function (e) { setRoleFilter(e.target.value); }}
+                  onChange={function (e) {
+                    setRoleFilter(e.target.value);
+                  }}
                   className={fieldClass}
                 >
                   {ROLE_FILTERS.map(function (option) {
@@ -704,7 +776,9 @@ export default function Screen() {
                 <select
                   id="status-filter"
                   value={statusFilter}
-                  onChange={function (e) { setStatusFilter(e.target.value); }}
+                  onChange={function (e) {
+                    setStatusFilter(e.target.value);
+                  }}
                   className={fieldClass}
                 >
                   {STATUS_FILTERS.map(function (option) {
@@ -722,10 +796,12 @@ export default function Screen() {
           {visible.length === 0 ? (
             <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
               <Icons.Users aria-hidden="true" className="h-8 w-8 text-slate-400" />
-              <h3 className="text-base font-semibold text-slate-900">No accounts match these filters</h3>
+              <h3 className="text-base font-semibold text-slate-900">
+                No accounts match these filters
+              </h3>
               <p className="max-w-sm text-sm" style={{ color: brand.neutralColor }}>
-                Nothing matches “{query.trim() || "the current filters"}”. Try a different search term or clear
-                the filters to see all {users.length} accounts.
+                Nothing matches “{query.trim() || "the current filters"}”. Try a different search
+                term or clear the filters to see all {users.length} accounts.
               </p>
               <Button
                 type="button"
@@ -743,22 +819,46 @@ export default function Screen() {
               </caption>
               <THead>
                 <TR className="border-b border-slate-200">
-                  <TH scope="col" className="px-5 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: brand.neutralColor }}>
+                  <TH
+                    scope="col"
+                    className="px-5 py-3 text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: brand.neutralColor }}
+                  >
                     User
                   </TH>
-                  <TH scope="col" className="px-5 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: brand.neutralColor }}>
+                  <TH
+                    scope="col"
+                    className="px-5 py-3 text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: brand.neutralColor }}
+                  >
                     Role
                   </TH>
-                  <TH scope="col" className="px-5 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: brand.neutralColor }}>
+                  <TH
+                    scope="col"
+                    className="px-5 py-3 text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: brand.neutralColor }}
+                  >
                     Status
                   </TH>
-                  <TH scope="col" className="hidden px-5 py-3 text-xs font-semibold uppercase tracking-wide md:table-cell" style={{ color: brand.neutralColor }}>
+                  <TH
+                    scope="col"
+                    className="hidden px-5 py-3 text-xs font-semibold uppercase tracking-wide md:table-cell"
+                    style={{ color: brand.neutralColor }}
+                  >
                     Added
                   </TH>
-                  <TH scope="col" className="hidden px-5 py-3 text-xs font-semibold uppercase tracking-wide lg:table-cell" style={{ color: brand.neutralColor }}>
+                  <TH
+                    scope="col"
+                    className="hidden px-5 py-3 text-xs font-semibold uppercase tracking-wide lg:table-cell"
+                    style={{ color: brand.neutralColor }}
+                  >
                     Last active
                   </TH>
-                  <TH scope="col" className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: brand.neutralColor }}>
+                  <TH
+                    scope="col"
+                    className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: brand.neutralColor }}
+                  >
                     Actions
                   </TH>
                 </TR>
@@ -781,14 +881,19 @@ export default function Screen() {
                           </span>
                           <span className="min-w-0">
                             <span className="flex items-center gap-2">
-                              <span className="truncate text-sm font-semibold text-slate-900">{user.name}</span>
+                              <span className="truncate text-sm font-semibold text-slate-900">
+                                {user.name}
+                              </span>
                               {isSelf ? (
                                 <span className="rounded border border-slate-300 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
                                   You
                                 </span>
                               ) : null}
                             </span>
-                            <span className="block truncate text-sm" style={{ color: brand.neutralColor }}>
+                            <span
+                              className="block truncate text-sm"
+                              style={{ color: brand.neutralColor }}
+                            >
                               {user.email}
                             </span>
                           </span>
@@ -816,22 +921,32 @@ export default function Screen() {
                         <StatusCell user={user} />
                       </TD>
 
-                      <TD className="hidden px-5 py-4 text-sm md:table-cell" style={{ color: brand.neutralColor }}>
+                      <TD
+                        className="hidden px-5 py-4 text-sm md:table-cell"
+                        style={{ color: brand.neutralColor }}
+                      >
                         {formatDate(user.created_at)}
                       </TD>
 
-                      <TD className="hidden px-5 py-4 text-sm lg:table-cell" style={{ color: brand.neutralColor }}>
+                      <TD
+                        className="hidden px-5 py-4 text-sm lg:table-cell"
+                        style={{ color: brand.neutralColor }}
+                      >
                         {user.last_seen || "Never signed in"}
                       </TD>
 
                       <TD className="relative px-5 py-4 text-right">
                         <button
                           type="button"
-                          ref={function (el) { triggerRefs.current[user.id] = el; }}
+                          ref={function (el) {
+                            triggerRefs.current[user.id] = el;
+                          }}
                           aria-haspopup="menu"
                           aria-expanded={isOpen}
                           aria-label={`Actions for ${user.name}`}
-                          onClick={function () { setOpenMenuId(isOpen ? null : user.id); }}
+                          onClick={function () {
+                            setOpenMenuId(isOpen ? null : user.id);
+                          }}
                           className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
                         >
                           <Icons.MoreHorizontal aria-hidden="true" className="h-4 w-4" />
@@ -848,7 +963,9 @@ export default function Screen() {
                             <button
                               type="button"
                               role="menuitem"
-                              onClick={function () { openResetDialog(user); }}
+                              onClick={function () {
+                                openResetDialog(user);
+                              }}
                               className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-slate-800 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
                             >
                               <Icons.Edit aria-hidden="true" className="h-4 w-4 text-slate-500" />
@@ -859,10 +976,15 @@ export default function Screen() {
                               <button
                                 type="button"
                                 role="menuitem"
-                                onClick={function () { clearLock(user); }}
+                                onClick={function () {
+                                  clearLock(user);
+                                }}
                                 className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-slate-800 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
                               >
-                                <Icons.Check aria-hidden="true" className="h-4 w-4 text-slate-500" />
+                                <Icons.Check
+                                  aria-hidden="true"
+                                  className="h-4 w-4 text-slate-500"
+                                />
                                 Clear sign-in lock
                               </button>
                             ) : null}
@@ -877,7 +999,9 @@ export default function Screen() {
                               }}
                               className={
                                 "flex w-full items-center gap-2 px-4 py-2.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900 " +
-                                (isSelf ? "cursor-not-allowed text-slate-400" : "text-slate-800 hover:bg-slate-50 focus:bg-slate-50")
+                                (isSelf
+                                  ? "cursor-not-allowed text-slate-400"
+                                  : "text-slate-800 hover:bg-slate-50 focus:bg-slate-50")
                               }
                             >
                               <Icons.Users aria-hidden="true" className="h-4 w-4 text-slate-500" />
@@ -894,13 +1018,18 @@ export default function Screen() {
                               }}
                               className={
                                 "flex w-full items-center gap-2 px-4 py-2.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900 " +
-                                (isSelf ? "cursor-not-allowed text-slate-400" : "text-slate-800 hover:bg-slate-50 focus:bg-slate-50")
+                                (isSelf
+                                  ? "cursor-not-allowed text-slate-400"
+                                  : "text-slate-800 hover:bg-slate-50 focus:bg-slate-50")
                               }
                             >
                               {user.is_enabled ? (
                                 <Icons.X aria-hidden="true" className="h-4 w-4 text-slate-500" />
                               ) : (
-                                <Icons.CheckCircle aria-hidden="true" className="h-4 w-4 text-slate-500" />
+                                <Icons.CheckCircle
+                                  aria-hidden="true"
+                                  className="h-4 w-4 text-slate-500"
+                                />
                               )}
                               {user.is_enabled ? "Disable account" : "Enable account"}
                             </button>
@@ -925,7 +1054,9 @@ export default function Screen() {
           Employees never see this page. Looking for document access instead?{" "}
           <button
             type="button"
-            onClick={function () { navigate("knowledge-base"); }}
+            onClick={function () {
+              navigate("knowledge-base");
+            }}
             className="font-semibold underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
             style={{ color: navy }}
           >
@@ -949,12 +1080,20 @@ export default function Screen() {
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-4">
               <div>
-                <h2 id="add-user-title" className="text-lg font-semibold" style={{ color: navy, fontFamily: brand.fontHeading }}>
+                <h2
+                  id="add-user-title"
+                  className="text-lg font-semibold"
+                  style={{ color: navy, fontFamily: brand.fontHeading }}
+                >
                   Add a user
                 </h2>
-                <p id="add-user-desc" className="mt-1 text-sm" style={{ color: brand.neutralColor }}>
-                  The account is enabled straight away. No email is sent — share the initial password with them
-                  yourself.
+                <p
+                  id="add-user-desc"
+                  className="mt-1 text-sm"
+                  style={{ color: brand.neutralColor }}
+                >
+                  The account is enabled straight away. No email is sent — share the initial
+                  password with them yourself.
                 </p>
               </div>
               <button
@@ -978,13 +1117,18 @@ export default function Screen() {
                     ref={addFirstFieldRef}
                     type="email"
                     value={addEmail}
-                    onChange={function (e) { setAddEmail(e.target.value); }}
+                    onChange={function (e) {
+                      setAddEmail(e.target.value);
+                    }}
                     aria-invalid={addErrors.email ? "true" : undefined}
                     aria-describedby={addErrors.email ? "new-email-error" : undefined}
                     className={fieldClass}
                   />
                   {addErrors.email ? (
-                    <p id="new-email-error" className="mt-1.5 flex items-center gap-1.5 text-sm text-red-700">
+                    <p
+                      id="new-email-error"
+                      className="mt-1.5 flex items-center gap-1.5 text-sm text-red-700"
+                    >
                       <Icons.AlertCircle aria-hidden="true" className="h-4 w-4" />
                       {addErrors.email}
                     </p>
@@ -993,7 +1137,10 @@ export default function Screen() {
 
                 <div>
                   <div className="flex items-baseline justify-between gap-3">
-                    <Label htmlFor="new-password" className="block text-sm font-medium text-slate-800">
+                    <Label
+                      htmlFor="new-password"
+                      className="block text-sm font-medium text-slate-800"
+                    >
                       Initial password
                     </Label>
                     <button
@@ -1016,20 +1163,31 @@ export default function Screen() {
                     id="new-password"
                     type="text"
                     value={addPassword}
-                    onChange={function (e) { setAddPassword(e.target.value); }}
+                    onChange={function (e) {
+                      setAddPassword(e.target.value);
+                    }}
                     aria-invalid={addErrors.password ? "true" : undefined}
-                    aria-describedby={addErrors.password ? "new-password-error" : "new-password-hint"}
+                    aria-describedby={
+                      addErrors.password ? "new-password-error" : "new-password-hint"
+                    }
                     className={fieldClass}
                   />
                   {addErrors.password ? (
-                    <p id="new-password-error" className="mt-1.5 flex items-center gap-1.5 text-sm text-red-700">
+                    <p
+                      id="new-password-error"
+                      className="mt-1.5 flex items-center gap-1.5 text-sm text-red-700"
+                    >
                       <Icons.AlertCircle aria-hidden="true" className="h-4 w-4" />
                       {addErrors.password}
                     </p>
                   ) : (
-                    <p id="new-password-hint" className="mt-1.5 text-sm" style={{ color: brand.neutralColor }}>
-                      At least {PASSWORD_MIN} characters. Stored as a bcrypt hash; they can change it on the
-                      Account page.
+                    <p
+                      id="new-password-hint"
+                      className="mt-1.5 text-sm"
+                      style={{ color: brand.neutralColor }}
+                    >
+                      At least {PASSWORD_MIN} characters. Stored as a bcrypt hash; they can change
+                      it on the Account page.
                     </p>
                   )}
                 </div>
@@ -1039,7 +1197,9 @@ export default function Screen() {
                     id="new-is-admin"
                     type="checkbox"
                     checked={addIsAdmin}
-                    onChange={function (e) { setAddIsAdmin(e.target.checked); }}
+                    onChange={function (e) {
+                      setAddIsAdmin(e.target.checked);
+                    }}
                     className="mt-0.5 h-4 w-4 rounded border-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
                     style={{ accentColor: navy }}
                   />
@@ -1091,11 +1251,16 @@ export default function Screen() {
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-4">
               <div>
-                <h2 id="reset-title" className="text-lg font-semibold" style={{ color: navy, fontFamily: brand.fontHeading }}>
+                <h2
+                  id="reset-title"
+                  className="text-lg font-semibold"
+                  style={{ color: navy, fontFamily: brand.fontHeading }}
+                >
                   Reset password
                 </h2>
                 <p id="reset-desc" className="mt-1 text-sm" style={{ color: brand.neutralColor }}>
-                  Setting a new password for <strong className="font-semibold text-slate-800">{resetUser.email}</strong>{" "}
+                  Setting a new password for{" "}
+                  <strong className="font-semibold text-slate-800">{resetUser.email}</strong>{" "}
                   replaces the stored hash and clears any sign-in lock on that email.
                 </p>
               </div>
@@ -1120,38 +1285,59 @@ export default function Screen() {
                     ref={resetFirstFieldRef}
                     type="text"
                     value={newPassword}
-                    onChange={function (e) { setNewPassword(e.target.value); }}
+                    onChange={function (e) {
+                      setNewPassword(e.target.value);
+                    }}
                     aria-invalid={resetErrors.newPassword ? "true" : undefined}
-                    aria-describedby={resetErrors.newPassword ? "reset-new-error" : "reset-new-hint"}
+                    aria-describedby={
+                      resetErrors.newPassword ? "reset-new-error" : "reset-new-hint"
+                    }
                     className={fieldClass}
                   />
                   {resetErrors.newPassword ? (
-                    <p id="reset-new-error" className="mt-1.5 flex items-center gap-1.5 text-sm text-red-700">
+                    <p
+                      id="reset-new-error"
+                      className="mt-1.5 flex items-center gap-1.5 text-sm text-red-700"
+                    >
                       <Icons.AlertCircle aria-hidden="true" className="h-4 w-4" />
                       {resetErrors.newPassword}
                     </p>
                   ) : (
-                    <p id="reset-new-hint" className="mt-1.5 text-sm" style={{ color: brand.neutralColor }}>
+                    <p
+                      id="reset-new-hint"
+                      className="mt-1.5 text-sm"
+                      style={{ color: brand.neutralColor }}
+                    >
                       At least {PASSWORD_MIN} characters.
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <Label htmlFor="reset-confirm" className="block text-sm font-medium text-slate-800">
+                  <Label
+                    htmlFor="reset-confirm"
+                    className="block text-sm font-medium text-slate-800"
+                  >
                     Confirm new password
                   </Label>
                   <Input
                     id="reset-confirm"
                     type="text"
                     value={confirmPassword}
-                    onChange={function (e) { setConfirmPassword(e.target.value); }}
+                    onChange={function (e) {
+                      setConfirmPassword(e.target.value);
+                    }}
                     aria-invalid={resetErrors.confirmPassword ? "true" : undefined}
-                    aria-describedby={resetErrors.confirmPassword ? "reset-confirm-error" : undefined}
+                    aria-describedby={
+                      resetErrors.confirmPassword ? "reset-confirm-error" : undefined
+                    }
                     className={fieldClass}
                   />
                   {resetErrors.confirmPassword ? (
-                    <p id="reset-confirm-error" className="mt-1.5 flex items-center gap-1.5 text-sm text-red-700">
+                    <p
+                      id="reset-confirm-error"
+                      className="mt-1.5 flex items-center gap-1.5 text-sm text-red-700"
+                    >
                       <Icons.AlertCircle aria-hidden="true" className="h-4 w-4" />
                       {resetErrors.confirmPassword}
                     </p>

@@ -63,7 +63,7 @@ export default function Screen() {
   const [newEmail, setNewEmail] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
-  const [signUpErrors, setSignUpErrors] = React.useState({});
+  const [signUpErrors, setSignUpErrors] = React.useState<Record<string, string>>({});
   const [createdAccount, setCreatedAccount] = React.useState(null);
 
   const [showExpiredNotice, setShowExpiredNotice] = React.useState(true);
@@ -122,9 +122,7 @@ export default function Screen() {
     }
 
     const cleared =
-      record.lockedUntil && record.lockedUntil <= now
-        ? { count: 0, lockedUntil: null }
-        : record;
+      record.lockedUntil && record.lockedUntil <= now ? { count: 0, lockedUntil: null } : record;
 
     const account = accounts.find((a) => a.email.toLowerCase() === key);
     const valid = account && account.is_enabled && account.password === password;
@@ -162,7 +160,7 @@ export default function Screen() {
 
   function handleSignUp(event) {
     event.preventDefault();
-    const errors = {};
+    const errors: Record<string, string> = {};
     const key = newEmail.trim().toLowerCase();
 
     if (!key) {
@@ -175,8 +173,7 @@ export default function Screen() {
     }
 
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      errors.password =
-        "Password must be at least " + MIN_PASSWORD_LENGTH + " characters.";
+      errors.password = "Password must be at least " + MIN_PASSWORD_LENGTH + " characters.";
     }
     if (confirmPassword !== newPassword) {
       errors.confirm = "The two passwords do not match.";
@@ -224,12 +221,8 @@ export default function Screen() {
                 KA
               </div>
               <div>
-                <p className="text-base font-semibold leading-tight">
-                  Knowledge Assistant
-                </p>
-                <p className="text-sm leading-tight text-white/70">
-                  Wexford Group · Internal
-                </p>
+                <p className="text-base font-semibold leading-tight">Knowledge Assistant</p>
+                <p className="text-sm leading-tight text-white/70">Wexford Group · Internal</p>
               </div>
             </div>
 
@@ -237,8 +230,7 @@ export default function Screen() {
               className="mt-10 max-w-md text-xl leading-relaxed text-white/90 sm:text-2xl"
               style={{ fontFamily: brand.fontHeading }}
             >
-              Answers from the company&rsquo;s own documents, with the source
-              attached.
+              Answers from the company&rsquo;s own documents, with the source attached.
             </p>
 
             <h2 className="mt-10 text-xs font-semibold uppercase tracking-widest text-white/60">
@@ -254,9 +246,7 @@ export default function Screen() {
                   >
                     <Icons.Check className="h-3.5 w-3.5 text-white" />
                   </span>
-                  <span className="text-sm leading-relaxed text-white/85">
-                    {item}
-                  </span>
+                  <span className="text-sm leading-relaxed text-white/85">{item}</span>
                 </li>
               ))}
             </ul>
@@ -303,8 +293,8 @@ export default function Screen() {
               Sign in to Knowledge Assistant
             </h1>
             <p className="mt-2 text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
-              Use your Wexford work email. Sessions end automatically after 7 days
-              of inactivity; there is no &ldquo;remember me&rdquo; option.
+              Use your Wexford work email. Sessions end automatically after 7 days of inactivity;
+              there is no &ldquo;remember me&rdquo; option.
             </p>
 
             {showExpiredNotice && (
@@ -317,17 +307,14 @@ export default function Screen() {
                   aria-hidden="true"
                 />
                 <p className="flex-1 text-sm leading-relaxed text-amber-900">
-                  <span className="font-semibold">Session ended.</span> You were
-                  signed out after a period of inactivity. Sign in again to return
-                  to Chat.
+                  <span className="font-semibold">Session ended.</span> You were signed out after a
+                  period of inactivity. Sign in again to return to Chat.
                 </p>
                 <button
                   type="button"
                   aria-label="Dismiss session ended notice"
                   onClick={() => setShowExpiredNotice(false)}
-                  className={
-                    "-m-1 rounded p-1 text-amber-800 hover:bg-amber-100 " + focusRing
-                  }
+                  className={"-m-1 rounded p-1 text-amber-800 hover:bg-amber-100 " + focusRing}
                 >
                   <Icons.X className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -428,8 +415,7 @@ export default function Screen() {
                           onClick={() => setShowPassword((v) => !v)}
                           aria-pressed={showPassword}
                           className={
-                            "rounded text-xs font-medium underline underline-offset-2 " +
-                            focusRing
+                            "rounded text-xs font-medium underline underline-offset-2 " + focusRing
                           }
                           style={{ color: brand.primaryColor }}
                         >
@@ -449,9 +435,13 @@ export default function Screen() {
                       />
                     </div>
 
-                    <p id="signin-help" className="text-xs leading-relaxed" style={{ color: brand.neutralColor }}>
-                      After {MAX_ATTEMPTS} failed attempts in {LOCK_MINUTES} minutes,
-                      an email address is locked for {LOCK_MINUTES} minutes.
+                    <p
+                      id="signin-help"
+                      className="text-xs leading-relaxed"
+                      style={{ color: brand.neutralColor }}
+                    >
+                      After {MAX_ATTEMPTS} failed attempts in {LOCK_MINUTES} minutes, an email
+                      address is locked for {LOCK_MINUTES} minutes.
                     </p>
 
                     <button
@@ -473,15 +463,16 @@ export default function Screen() {
                     className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4"
                     style={{ borderRadius: brand.radius }}
                   >
-                    <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: brand.neutralColor }}>
+                    <h2
+                      className="text-xs font-semibold uppercase tracking-widest"
+                      style={{ color: brand.neutralColor }}
+                    >
                       Pilot environment
                     </h2>
                     <dl className="mt-3 space-y-1.5 text-sm">
                       <div className="flex flex-wrap gap-x-2">
                         <dt className="font-medium text-slate-700">Email</dt>
-                        <dd className="font-mono text-slate-900">
-                          alice.hartley@wexford.co.uk
-                        </dd>
+                        <dd className="font-mono text-slate-900">alice.hartley@wexford.co.uk</dd>
                       </div>
                       <div className="flex flex-wrap gap-x-2">
                         <dt className="font-medium text-slate-700">Password</dt>
@@ -556,8 +547,8 @@ export default function Screen() {
                   ) : (
                     <form onSubmit={handleSignUp} noValidate className="space-y-5">
                       <p className="text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
-                        Self-service account creation is currently enabled. New
-                        accounts are given the Employee role.
+                        Self-service account creation is currently enabled. New accounts are given
+                        the Employee role.
                       </p>
 
                       <div>
@@ -569,9 +560,7 @@ export default function Screen() {
                           className={fieldClass}
                           value={newEmail}
                           aria-invalid={signUpErrors.email ? true : undefined}
-                          aria-describedby={
-                            signUpErrors.email ? "signup-email-error" : undefined
-                          }
+                          aria-describedby={signUpErrors.email ? "signup-email-error" : undefined}
                           onChange={(e) => setNewEmail(e.target.value)}
                         />
                         {signUpErrors.email && (
@@ -598,9 +587,7 @@ export default function Screen() {
                           value={newPassword}
                           aria-invalid={signUpErrors.password ? true : undefined}
                           aria-describedby={
-                            signUpErrors.password
-                              ? "signup-password-error"
-                              : "signup-password-hint"
+                            signUpErrors.password ? "signup-password-error" : "signup-password-hint"
                           }
                           onChange={(e) => setNewPassword(e.target.value)}
                         />
@@ -627,9 +614,7 @@ export default function Screen() {
                       </div>
 
                       <div>
-                        <UI.Label htmlFor="signup-confirm">
-                          Confirm password
-                        </UI.Label>
+                        <UI.Label htmlFor="signup-confirm">Confirm password</UI.Label>
                         <UI.Input
                           id="signup-confirm"
                           type="password"
@@ -676,9 +661,8 @@ export default function Screen() {
             </div>
 
             <p className="mt-6 text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
-              Forgotten your password? There is no reset email. Contact the IT
-              service desk on extension 4120 and an administrator will set a new
-              one from the Users page.
+              Forgotten your password? There is no reset email. Contact the IT service desk on
+              extension 4120 and an administrator will set a new one from the Users page.
             </p>
           </section>
         </div>

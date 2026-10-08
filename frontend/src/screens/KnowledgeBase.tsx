@@ -7,7 +7,19 @@ import { brand } from "@/lib/brand";
 import { useNavigate } from "@/lib/navigate";
 
 const { Button, Input, Label, Select, Table, THead, TBody, TR, TH, TD, Stat } = UI;
-const { Search, X, FileText, Package, Clock, Trash, Filter, Download, Upload, AlertCircle, CheckCircle } = Icons;
+const {
+  Search,
+  X,
+  FileText,
+  Package,
+  Clock,
+  Trash,
+  Filter,
+  Download,
+  Upload,
+  AlertCircle,
+  CheckCircle,
+} = Icons;
 
 const ACCEPTED_EXTENSIONS = ["pdf", "docx", "txt", "md"];
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -235,7 +247,9 @@ function formatUploaded(iso) {
   const now = new Date();
   const time = pad(d.getHours()) + ":" + pad(d.getMinutes());
   const sameDay = (a, b) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
   const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   if (sameDay(d, now)) return "Today, " + time;
   if (sameDay(d, yesterday)) return "Yesterday, " + time;
@@ -275,21 +289,27 @@ export default function Screen() {
     if (!processingKey) return undefined;
     const ids = processingKey.split("|");
     const timers = ids.map((id, i) =>
-      setTimeout(() => {
-        setDocuments((prev) =>
-          prev.map((d) =>
-            d.id === id && d.status === "processing"
-              ? {
-                  ...d,
-                  status: "ready",
-                  status_reason: null,
-                  chunk_count: estimateChunks(d.size_bytes),
-                }
-              : d
-          )
-        );
-        setNotice({ tone: "info", text: "Ingestion finished — a document is now ready to be cited in chat." });
-      }, 3600 + i * 2200)
+      setTimeout(
+        () => {
+          setDocuments((prev) =>
+            prev.map((d) =>
+              d.id === id && d.status === "processing"
+                ? {
+                    ...d,
+                    status: "ready",
+                    status_reason: null,
+                    chunk_count: estimateChunks(d.size_bytes),
+                  }
+                : d,
+            ),
+          );
+          setNotice({
+            tone: "info",
+            text: "Ingestion finished — a document is now ready to be cited in chat.",
+          });
+        },
+        3600 + i * 2200,
+      ),
     );
     return () => timers.forEach(clearTimeout);
   }, [processingKey]);
@@ -306,7 +326,7 @@ export default function Screen() {
       }
       if (e.key === "Tab" && dialogRef.current) {
         const focusable = dialogRef.current.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         );
         if (!focusable.length) return;
         const first = focusable[0];
@@ -345,7 +365,7 @@ export default function Screen() {
       .filter((d) => (q ? d.filename.toLowerCase().includes(q) : true))
       .filter((d) => (statusFilter === "all" ? true : d.status === statusFilter))
       .filter((d) => (typeFilter === "all" ? true : d.file_type === typeFilter))
-      .sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at));
+      .sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
   }, [documents, query, statusFilter, typeFilter]);
 
   const filtersActive = query.trim() !== "" || statusFilter !== "all" || typeFilter !== "all";
@@ -356,18 +376,20 @@ export default function Screen() {
     setTypeFilter("all");
   }
 
-  function handleFiles(fileList) {
-    const files = Array.from(fileList || []);
+  function handleFiles(fileList: FileList | File[] | null) {
+    const files: File[] = Array.from(fileList || []);
     if (!files.length) return;
-    const errors = [];
-    const accepted = [];
+    const errors: string[] = [];
+    const accepted: (typeof documents)[number][] = [];
     let duplicate = false;
 
-    files.forEach((file) => {
+    files.forEach((file: File) => {
       const parts = file.name.split(".");
       const ext = parts.length > 1 ? parts.pop().toLowerCase() : "";
       if (ACCEPTED_EXTENSIONS.indexOf(ext) === -1) {
-        errors.push(file.name + " — unsupported format. Accepted formats are PDF, DOCX, TXT and MD.");
+        errors.push(
+          file.name + " — unsupported format. Accepted formats are PDF, DOCX, TXT and MD.",
+        );
         return;
       }
       if (file.size > MAX_BYTES) {
@@ -398,7 +420,9 @@ export default function Screen() {
           accepted.length +
           (accepted.length === 1 ? " file accepted" : " files accepted") +
           " and queued for processing." +
-          (duplicate ? " A document with the same filename already existed, so a separate new document was created." : ""),
+          (duplicate
+            ? " A document with the same filename already existed, so a separate new document was created."
+            : ""),
       });
     } else if (errors.length) {
       setNotice(null);
@@ -409,7 +433,12 @@ export default function Screen() {
   function handleDownload(doc) {
     setNotice({
       tone: "info",
-      text: "Downloading the original file “" + doc.filename + "” (" + formatSize(doc.size_bytes) + ").",
+      text:
+        "Downloading the original file “" +
+        doc.filename +
+        "” (" +
+        formatSize(doc.size_bytes) +
+        ").",
     });
   }
 
@@ -419,7 +448,12 @@ export default function Screen() {
     setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
     setNotice({
       tone: "info",
-      text: "“" + doc.filename + "” was deleted, along with its stored file and " + doc.chunk_count + " indexed chunks.",
+      text:
+        "“" +
+        doc.filename +
+        "” was deleted, along with its stored file and " +
+        doc.chunk_count +
+        " indexed chunks.",
     });
     closeDialog();
   }
@@ -427,14 +461,19 @@ export default function Screen() {
   const focusRing =
     "focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14304F]";
   const fieldClass =
-    "w-full rounded-md border border-[#C9D3DC] bg-white px-3 py-2 text-sm text-[#14304F] " + focusRing;
+    "w-full rounded-md border border-[#C9D3DC] bg-white px-3 py-2 text-sm text-[#14304F] " +
+    focusRing;
 
   const tiles = [
     { label: "Total documents", value: stats.total, hint: "in the shared knowledge base" },
     { label: "Ready", value: stats.ready, hint: "answerable in chat" },
     { label: "Processing", value: stats.processing, hint: "background ingestion" },
     { label: "Failed", value: stats.failed, hint: "reason shown in the table" },
-    { label: "Chunks indexed", value: stats.chunks.toLocaleString(), hint: "768-dimension embeddings" },
+    {
+      label: "Chunks indexed",
+      value: stats.chunks.toLocaleString(),
+      hint: "768-dimension embeddings",
+    },
   ];
 
   return (
@@ -445,19 +484,25 @@ export default function Screen() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <h1 className="text-3xl font-semibold tracking-tight" style={{ fontFamily: brand.fontHeading }}>
+          <h1
+            className="text-3xl font-semibold tracking-tight"
+            style={{ fontFamily: brand.fontHeading }}
+          >
             Knowledge base
           </h1>
           <p className="mt-2 text-[15px] leading-relaxed" style={{ color: brand.neutralColor }}>
-            Every document marked ready is searchable by everyone signed in, and is cited by name and page
-            whenever the assistant uses it. Administrators upload and remove files.
+            Every document marked ready is searchable by everyone signed in, and is cited by name
+            and page whenever the assistant uses it. Administrators upload and remove files.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <UI.Button
             type="button"
             onClick={() => navigate("chat")}
-            className={"inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white " + focusRing}
+            className={
+              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white " +
+              focusRing
+            }
             style={{ backgroundColor: brand.primaryColor }}
           >
             <Icons.Search className="h-4 w-4" aria-hidden="true" />
@@ -469,7 +514,11 @@ export default function Screen() {
       {/* Role preview — mirrors what an employee without admin rights sees */}
       <div className="mt-6 flex flex-wrap items-center gap-3 rounded-lg border border-[#DCE3EA] bg-white px-4 py-3">
         <span className="text-sm font-medium">Viewing this page as</span>
-        <div className="flex gap-1 rounded-md bg-[#EDF1F5] p-1" role="group" aria-label="Preview the page with a different role">
+        <div
+          className="flex gap-1 rounded-md bg-[#EDF1F5] p-1"
+          role="group"
+          aria-label="Preview the page with a different role"
+        >
           {[
             { key: "admin", label: "Administrator" },
             { key: "employee", label: "Employee" },
@@ -508,10 +557,16 @@ export default function Screen() {
         <dl className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
           {tiles.map((tile) => (
             <div key={tile.label} className="rounded-lg border border-[#DCE3EA] bg-white px-4 py-5">
-              <dt className="text-xs font-semibold uppercase tracking-wide" style={{ color: brand.neutralColor }}>
+              <dt
+                className="text-xs font-semibold uppercase tracking-wide"
+                style={{ color: brand.neutralColor }}
+              >
                 {tile.label}
               </dt>
-              <dd className="mt-2 text-3xl font-semibold tabular-nums" style={{ fontFamily: brand.fontHeading }}>
+              <dd
+                className="mt-2 text-3xl font-semibold tabular-nums"
+                style={{ fontFamily: brand.fontHeading }}
+              >
                 {tile.value}
               </dd>
               <p className="mt-1 text-xs" style={{ color: brand.neutralColor }}>
@@ -553,7 +608,11 @@ export default function Screen() {
       {/* Upload */}
       {isAdmin ? (
         <section aria-labelledby="kb-upload-heading" className="mt-8">
-          <h2 id="kb-upload-heading" className="text-lg font-semibold" style={{ fontFamily: brand.fontHeading }}>
+          <h2
+            id="kb-upload-heading"
+            className="text-lg font-semibold"
+            style={{ fontFamily: brand.fontHeading }}
+          >
             Upload documents
           </h2>
           <div
@@ -579,13 +638,17 @@ export default function Screen() {
                   className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md"
                   style={{ backgroundColor: "#E6ECF2" }}
                 >
-                  <Icons.Upload className="h-5 w-5" aria-hidden="true" style={{ color: brand.primaryColor }} />
+                  <Icons.Upload
+                    className="h-5 w-5"
+                    aria-hidden="true"
+                    style={{ color: brand.primaryColor }}
+                  />
                 </span>
                 <div>
                   <p className="text-sm font-medium">Drag files here, or choose them below</p>
                   <p className="mt-1 text-sm" style={{ color: brand.neutralColor }}>
-                    PDF, DOCX, TXT or MD, up to 25 MB each. Processing runs in the background — you can leave
-                    this page.
+                    PDF, DOCX, TXT or MD, up to 25 MB each. Processing runs in the background — you
+                    can leave this page.
                   </p>
                 </div>
               </div>
@@ -605,9 +668,13 @@ export default function Screen() {
                     "mt-1.5 block w-full rounded-md border border-[#C9D3DC] bg-white text-sm text-[#14304F] file:mr-3 file:cursor-pointer file:rounded-l-md file:border-0 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white " +
                     focusRing
                   }
-                  style={{ ["--tw-file-bg"]: brand.primaryColor }}
+                  style={{ "--tw-file-bg": brand.primaryColor } as React.CSSProperties}
                 />
-                <p id="kb-file-help" className="mt-1.5 text-xs" style={{ color: brand.neutralColor }}>
+                <p
+                  id="kb-file-help"
+                  className="mt-1.5 text-xs"
+                  style={{ color: brand.neutralColor }}
+                >
                   Re-uploading an existing filename creates a separate new document.
                 </p>
               </div>
@@ -619,9 +686,14 @@ export default function Screen() {
                 className="mt-5 rounded-md border px-4 py-3"
                 style={{ borderColor: "#EFC6BF", backgroundColor: "#FBEAE7" }}
               >
-                <p className="flex items-center gap-2 text-sm font-semibold" style={{ color: "#9A2A1E" }}>
+                <p
+                  className="flex items-center gap-2 text-sm font-semibold"
+                  style={{ color: "#9A2A1E" }}
+                >
                   <Icons.AlertCircle className="h-4 w-4" aria-hidden="true" />
-                  {uploadErrors.length === 1 ? "1 file was rejected" : uploadErrors.length + " files were rejected"}
+                  {uploadErrors.length === 1
+                    ? "1 file was rejected"
+                    : uploadErrors.length + " files were rejected"}
                 </p>
                 <ul className="mt-2 list-disc space-y-1 pl-8 text-sm" style={{ color: "#7A2016" }}>
                   {uploadErrors.map((err, i) => (
@@ -637,7 +709,11 @@ export default function Screen() {
       {/* Documents */}
       <section aria-labelledby="kb-documents-heading" className="mt-10">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
-          <h2 id="kb-documents-heading" className="text-lg font-semibold" style={{ fontFamily: brand.fontHeading }}>
+          <h2
+            id="kb-documents-heading"
+            className="text-lg font-semibold"
+            style={{ fontFamily: brand.fontHeading }}
+          >
             Documents
           </h2>
           <p className="text-sm" style={{ color: brand.neutralColor }} aria-live="polite">
@@ -723,7 +799,11 @@ export default function Screen() {
         {/* Table or empty state */}
         {documents.length === 0 ? (
           <div className="mt-4 rounded-lg border border-[#DCE3EA] bg-white px-6 py-16 text-center">
-            <Icons.Package className="mx-auto h-8 w-8" aria-hidden="true" style={{ color: brand.neutralColor }} />
+            <Icons.Package
+              className="mx-auto h-8 w-8"
+              aria-hidden="true"
+              style={{ color: brand.neutralColor }}
+            />
             <h3 className="mt-4 text-base font-semibold">The knowledge base is empty</h3>
             <p className="mx-auto mt-2 max-w-md text-sm" style={{ color: brand.neutralColor }}>
               {isAdmin
@@ -733,15 +813,23 @@ export default function Screen() {
           </div>
         ) : visible.length === 0 ? (
           <div className="mt-4 rounded-lg border border-[#DCE3EA] bg-white px-6 py-16 text-center">
-            <Icons.Search className="mx-auto h-8 w-8" aria-hidden="true" style={{ color: brand.neutralColor }} />
+            <Icons.Search
+              className="mx-auto h-8 w-8"
+              aria-hidden="true"
+              style={{ color: brand.neutralColor }}
+            />
             <h3 className="mt-4 text-base font-semibold">No documents match your filters</h3>
             <p className="mx-auto mt-2 max-w-md text-sm" style={{ color: brand.neutralColor }}>
-              Nothing in the knowledge base matches {query.trim() ? "“" + query.trim() + "”" : "the selected filters"}.
+              Nothing in the knowledge base matches{" "}
+              {query.trim() ? "“" + query.trim() + "”" : "the selected filters"}.
             </p>
             <UI.Button
               type="button"
               onClick={clearFilters}
-              className={"mt-5 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white " + focusRing}
+              className={
+                "mt-5 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white " +
+                focusRing
+              }
               style={{ backgroundColor: brand.primaryColor }}
             >
               Clear filters
@@ -751,7 +839,8 @@ export default function Screen() {
           <div className="mt-4 overflow-x-auto rounded-lg border border-[#DCE3EA] bg-white">
             <UI.Table className="w-full min-w-[840px] border-collapse text-sm">
               <caption className="sr-only">
-                Documents in the shared knowledge base, with type, size, upload date, status and chunk count.
+                Documents in the shared knowledge base, with type, size, upload date, status and
+                chunk count.
               </caption>
               <UI.THead>
                 <UI.TR className="border-b border-[#DCE3EA]">
@@ -783,7 +872,10 @@ export default function Screen() {
                   const meta = STATUS_META[doc.status];
                   const StatusIcon = Icons[meta.icon];
                   return (
-                    <UI.TR key={doc.id} className="border-b border-[#EDF1F5] align-top last:border-b-0">
+                    <UI.TR
+                      key={doc.id}
+                      className="border-b border-[#EDF1F5] align-top last:border-b-0"
+                    >
                       <UI.TH scope="row" className="px-4 py-4 text-left font-medium">
                         <span className="flex items-start gap-2">
                           <Icons.FileText
@@ -793,13 +885,18 @@ export default function Screen() {
                           />
                           <span className="min-w-0">
                             <span className="block break-all">{doc.filename}</span>
-                            <span className="mt-1 block text-xs font-normal" style={{ color: brand.neutralColor }}>
+                            <span
+                              className="mt-1 block text-xs font-normal"
+                              style={{ color: brand.neutralColor }}
+                            >
                               Added by {doc.uploaded_by}
                             </span>
                             {doc.status_reason ? (
                               <span
                                 className="mt-1 block text-xs font-normal"
-                                style={{ color: doc.status === "failed" ? "#9A2A1E" : brand.neutralColor }}
+                                style={{
+                                  color: doc.status === "failed" ? "#9A2A1E" : brand.neutralColor,
+                                }}
                               >
                                 {doc.status_reason}
                               </span>
@@ -810,22 +907,35 @@ export default function Screen() {
                       <UI.TD className="px-4 py-4" style={{ color: brand.neutralColor }}>
                         {doc.file_type}
                       </UI.TD>
-                      <UI.TD className="px-4 py-4 text-right tabular-nums" style={{ color: brand.neutralColor }}>
+                      <UI.TD
+                        className="px-4 py-4 text-right tabular-nums"
+                        style={{ color: brand.neutralColor }}
+                      >
                         {formatSize(doc.size_bytes)}
                       </UI.TD>
-                      <UI.TD className="whitespace-nowrap px-4 py-4" style={{ color: brand.neutralColor }}>
+                      <UI.TD
+                        className="whitespace-nowrap px-4 py-4"
+                        style={{ color: brand.neutralColor }}
+                      >
                         {formatUploaded(doc.uploaded_at)}
                       </UI.TD>
                       <UI.TD className="px-4 py-4">
                         <span
                           className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold"
-                          style={{ color: meta.fg, backgroundColor: meta.bg, borderColor: meta.border }}
+                          style={{
+                            color: meta.fg,
+                            backgroundColor: meta.bg,
+                            borderColor: meta.border,
+                          }}
                         >
                           <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
                           {meta.label}
                         </span>
                       </UI.TD>
-                      <UI.TD className="px-4 py-4 text-right tabular-nums" style={{ color: brand.neutralColor }}>
+                      <UI.TD
+                        className="px-4 py-4 text-right tabular-nums"
+                        style={{ color: brand.neutralColor }}
+                      >
                         {doc.status === "ready" ? doc.chunk_count.toLocaleString() : "—"}
                       </UI.TD>
                       <UI.TD className="px-4 py-4">
@@ -834,9 +944,16 @@ export default function Screen() {
                             type="button"
                             onClick={() => handleDownload(doc)}
                             aria-label={"Download original file " + doc.filename}
-                            className={"rounded-md border border-[#C9D3DC] p-2 hover:bg-[#EDF1F5] " + focusRing}
+                            className={
+                              "rounded-md border border-[#C9D3DC] p-2 hover:bg-[#EDF1F5] " +
+                              focusRing
+                            }
                           >
-                            <Icons.Download className="h-4 w-4" aria-hidden="true" style={{ color: brand.primaryColor }} />
+                            <Icons.Download
+                              className="h-4 w-4"
+                              aria-hidden="true"
+                              style={{ color: brand.primaryColor }}
+                            />
                           </button>
                           {isAdmin ? (
                             <button
@@ -846,9 +963,16 @@ export default function Screen() {
                                 setPendingDelete(doc);
                               }}
                               aria-label={"Delete " + doc.filename}
-                              className={"rounded-md border border-[#C9D3DC] p-2 hover:bg-[#FBEAE7] " + focusRing}
+                              className={
+                                "rounded-md border border-[#C9D3DC] p-2 hover:bg-[#FBEAE7] " +
+                                focusRing
+                              }
                             >
-                              <Icons.Trash className="h-4 w-4" aria-hidden="true" style={{ color: "#9A2A1E" }} />
+                              <Icons.Trash
+                                className="h-4 w-4"
+                                aria-hidden="true"
+                                style={{ color: "#9A2A1E" }}
+                              />
                             </button>
                           ) : null}
                         </div>
@@ -862,8 +986,8 @@ export default function Screen() {
         )}
 
         <p className="mt-4 text-xs" style={{ color: brand.neutralColor }}>
-          Retrieval uses a 0.62 cosine similarity threshold and returns the five best-matching chunks. Deleted
-          documents stop appearing in answers immediately.
+          Retrieval uses a 0.62 cosine similarity threshold and returns the five best-matching
+          chunks. Deleted documents stop appearing in answers immediately.
         </p>
       </section>
 
@@ -878,19 +1002,30 @@ export default function Screen() {
             aria-describedby="kb-delete-desc"
             className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
           >
-            <h2 id="kb-delete-title" className="text-lg font-semibold" style={{ fontFamily: brand.fontHeading }}>
+            <h2
+              id="kb-delete-title"
+              className="text-lg font-semibold"
+              style={{ fontFamily: brand.fontHeading }}
+            >
               Delete this document?
             </h2>
-            <p id="kb-delete-desc" className="mt-3 text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
+            <p
+              id="kb-delete-desc"
+              className="mt-3 text-sm leading-relaxed"
+              style={{ color: brand.neutralColor }}
+            >
               “{pendingDelete.filename}” will be removed along with its stored original file and{" "}
-              {pendingDelete.chunk_count.toLocaleString()} indexed chunks. Answers will stop citing it straight away.
-              This cannot be undone.
+              {pendingDelete.chunk_count.toLocaleString()} indexed chunks. Answers will stop citing
+              it straight away. This cannot be undone.
             </p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <UI.Button
                 type="button"
                 onClick={closeDialog}
-                className={"rounded-md border border-[#C9D3DC] bg-white px-4 py-2 text-sm font-medium " + focusRing}
+                className={
+                  "rounded-md border border-[#C9D3DC] bg-white px-4 py-2 text-sm font-medium " +
+                  focusRing
+                }
                 style={{ color: brand.primaryColor }}
               >
                 Cancel
@@ -899,7 +1034,10 @@ export default function Screen() {
                 type="button"
                 ref={confirmRef}
                 onClick={confirmDelete}
-                className={"inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white " + focusRing}
+                className={
+                  "inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white " +
+                  focusRing
+                }
                 style={{ backgroundColor: "#9A2A1E" }}
               >
                 <Icons.Trash className="h-4 w-4" aria-hidden="true" />

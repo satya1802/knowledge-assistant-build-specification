@@ -26,14 +26,62 @@ const SESSION = {
 };
 
 const INITIAL_EVENTS = [
-  { id: "e9", when: "8 Oct 2026, 08:14", kind: "success", label: "Signed in", detail: "Session started on this device" },
-  { id: "e8", when: "7 Oct 2026, 17:42", kind: "success", label: "Signed in", detail: "Session started" },
-  { id: "e7", when: "7 Oct 2026, 09:05", kind: "locked", label: "Email locked", detail: "5 failed attempts in 15 minutes — lock cleared automatically at 09:20" },
-  { id: "e6", when: "7 Oct 2026, 09:03", kind: "failed", label: "Sign-in failed", detail: "Incorrect email or password" },
-  { id: "e5", when: "7 Oct 2026, 09:02", kind: "failed", label: "Sign-in failed", detail: "Incorrect email or password" },
-  { id: "e4", when: "6 Oct 2026, 16:20", kind: "success", label: "Signed in", detail: "Session started" },
-  { id: "e3", when: "3 Oct 2026, 11:58", kind: "failed", label: "Sign-in failed", detail: "Incorrect email or password" },
-  { id: "e2", when: "2 Oct 2026, 08:31", kind: "success", label: "Signed in", detail: "Session started" },
+  {
+    id: "e9",
+    when: "8 Oct 2026, 08:14",
+    kind: "success",
+    label: "Signed in",
+    detail: "Session started on this device",
+  },
+  {
+    id: "e8",
+    when: "7 Oct 2026, 17:42",
+    kind: "success",
+    label: "Signed in",
+    detail: "Session started",
+  },
+  {
+    id: "e7",
+    when: "7 Oct 2026, 09:05",
+    kind: "locked",
+    label: "Email locked",
+    detail: "5 failed attempts in 15 minutes — lock cleared automatically at 09:20",
+  },
+  {
+    id: "e6",
+    when: "7 Oct 2026, 09:03",
+    kind: "failed",
+    label: "Sign-in failed",
+    detail: "Incorrect email or password",
+  },
+  {
+    id: "e5",
+    when: "7 Oct 2026, 09:02",
+    kind: "failed",
+    label: "Sign-in failed",
+    detail: "Incorrect email or password",
+  },
+  {
+    id: "e4",
+    when: "6 Oct 2026, 16:20",
+    kind: "success",
+    label: "Signed in",
+    detail: "Session started",
+  },
+  {
+    id: "e3",
+    when: "3 Oct 2026, 11:58",
+    kind: "failed",
+    label: "Sign-in failed",
+    detail: "Incorrect email or password",
+  },
+  {
+    id: "e2",
+    when: "2 Oct 2026, 08:31",
+    kind: "success",
+    label: "Signed in",
+    detail: "Session started",
+  },
 ];
 
 const THEME_OPTIONS = [
@@ -93,7 +141,9 @@ export default function Screen() {
   React.useEffect(function () {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = function (e) { setSystemDark(e.matches); };
+    const handler = function (e) {
+      setSystemDark(e.matches);
+    };
     if (mq.addEventListener) mq.addEventListener("change", handler);
     else if (mq.addListener) mq.addListener(handler);
     return function () {
@@ -108,7 +158,7 @@ export default function Screen() {
   const [current, setCurrent] = React.useState("");
   const [next, setNext] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
-  const [errors, setErrors] = React.useState({});
+  const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formStatus, setFormStatus] = React.useState(null);
   const [themeStatus, setThemeStatus] = React.useState("");
   const [passwordChanged, setPasswordChanged] = React.useState("24 August 2026");
@@ -128,25 +178,34 @@ export default function Screen() {
 
   function handleSubmit(e) {
     e.preventDefault();
-    const nextErrors = {};
+    const nextErrors: Record<string, string> = {};
 
     if (!current) nextErrors.current = "Enter your current password.";
     if (!next) nextErrors.next = "Enter a new password.";
-    else if (next.length < MIN_LENGTH) nextErrors.next = "New password must be at least " + MIN_LENGTH + " characters.";
-    else if (!/[0-9]/.test(next)) nextErrors.next = "New password must include at least one number.";
-    else if (next === current) nextErrors.next = "New password must be different from your current password.";
+    else if (next.length < MIN_LENGTH)
+      nextErrors.next = "New password must be at least " + MIN_LENGTH + " characters.";
+    else if (!/[0-9]/.test(next))
+      nextErrors.next = "New password must include at least one number.";
+    else if (next === current)
+      nextErrors.next = "New password must be different from your current password.";
     if (!confirm) nextErrors.confirm = "Re-enter the new password to confirm it.";
     else if (confirm !== next) nextErrors.confirm = "New password and confirmation do not match.";
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
-      setFormStatus({ kind: "error", message: "Your password was not changed. Check the highlighted fields below." });
+      setFormStatus({
+        kind: "error",
+        message: "Your password was not changed. Check the highlighted fields below.",
+      });
       return;
     }
 
     if (current.length < 8) {
       setErrors({ current: "Incorrect current password." });
-      setFormStatus({ kind: "error", message: "Current password is incorrect. Your stored password is unchanged." });
+      setFormStatus({
+        kind: "error",
+        message: "Current password is incorrect. Your stored password is unchanged.",
+      });
       return;
     }
 
@@ -155,15 +214,20 @@ export default function Screen() {
     setNext("");
     setConfirm("");
     setPasswordChanged("Today at 09:41");
-    setFormStatus({ kind: "success", message: "Password updated. Use the new password the next time you sign in." });
+    setFormStatus({
+      kind: "success",
+      message: "Password updated. Use the new password the next time you sign in.",
+    });
     setEvents(function (prev) {
-      return [{
-        id: "e-" + (prev.length + 10),
-        when: "8 Oct 2026, 09:41",
-        kind: "success",
-        label: "Password changed",
-        detail: "Changed from the Account page",
-      }].concat(prev);
+      return [
+        {
+          id: "e-" + (prev.length + 10),
+          when: "8 Oct 2026, 09:41",
+          kind: "success",
+          label: "Password changed",
+          detail: "Changed from the Account page",
+        },
+      ].concat(prev);
     });
   }
 
@@ -216,8 +280,8 @@ export default function Screen() {
             Account
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: c.muted }}>
-            Manage the password for your Knowledge Assistant sign-in and choose how the interface looks on
-            this device.
+            Manage the password for your Knowledge Assistant sign-in and choose how the interface
+            looks on this device.
           </p>
         </header>
 
@@ -229,20 +293,37 @@ export default function Screen() {
           <div className="flex items-center gap-4">
             <span
               className="flex h-14 w-14 shrink-0 items-center justify-center text-lg font-semibold"
-              style={{ backgroundColor: brand.primaryColor, color: "#FFFFFF", borderRadius: "999px" }}
+              style={{
+                backgroundColor: brand.primaryColor,
+                color: "#FFFFFF",
+                borderRadius: "999px",
+              }}
               aria-hidden="true"
             >
               SG
             </span>
             <div>
-              <h2 id="profile-heading" className="text-lg font-semibold" style={{ color: c.heading }}>
+              <h2
+                id="profile-heading"
+                className="text-lg font-semibold"
+                style={{ color: c.heading }}
+              >
                 {USER.name}
               </h2>
-              <p className="text-sm" style={{ color: c.muted }}>{USER.email}</p>
-              <p className="mt-2 flex flex-wrap items-center gap-2 text-xs" style={{ color: c.muted }}>
+              <p className="text-sm" style={{ color: c.muted }}>
+                {USER.email}
+              </p>
+              <p
+                className="mt-2 flex flex-wrap items-center gap-2 text-xs"
+                style={{ color: c.muted }}
+              >
                 <span
                   className="inline-flex items-center gap-1.5 border px-2 py-0.5 font-medium"
-                  style={{ color: brand.accentColor, borderColor: brand.accentColor, borderRadius: "999px" }}
+                  style={{
+                    color: brand.accentColor,
+                    borderColor: brand.accentColor,
+                    borderRadius: "999px",
+                  }}
                 >
                   <Icons.Check className="h-3.5 w-3.5" aria-hidden="true" />
                   Administrator
@@ -253,12 +334,20 @@ export default function Screen() {
           </div>
           <dl className="grid grid-cols-1 gap-3 text-sm sm:text-right">
             <div>
-              <dt className="text-xs uppercase tracking-wide" style={{ color: c.muted }}>Password last changed</dt>
-              <dd className="font-medium" style={{ color: c.text }}>{passwordChanged}</dd>
+              <dt className="text-xs uppercase tracking-wide" style={{ color: c.muted }}>
+                Password last changed
+              </dt>
+              <dd className="font-medium" style={{ color: c.text }}>
+                {passwordChanged}
+              </dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wide" style={{ color: c.muted }}>Signed in since</dt>
-              <dd className="font-medium" style={{ color: c.text }}>{SESSION.created_at}</dd>
+              <dt className="text-xs uppercase tracking-wide" style={{ color: c.muted }}>
+                Signed in since
+              </dt>
+              <dd className="font-medium" style={{ color: c.text }}>
+                {SESSION.created_at}
+              </dd>
             </div>
           </dl>
         </section>
@@ -266,12 +355,16 @@ export default function Screen() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 flex flex-col gap-8">
             <section className="border p-6" style={sectionStyle} aria-labelledby="password-heading">
-              <h2 id="password-heading" className="text-xl font-semibold" style={{ color: c.heading }}>
+              <h2
+                id="password-heading"
+                className="text-xl font-semibold"
+                style={{ color: c.heading }}
+              >
                 Change password
               </h2>
               <p className="mt-1.5 text-sm" style={{ color: c.muted }}>
-                Your new password replaces the one stored for {USER.email}. Other devices stay signed in until
-                their sessions expire.
+                Your new password replaces the one stored for {USER.email}. Other devices stay
+                signed in until their sessions expire.
               </p>
 
               <div aria-live="polite" role="status">
@@ -311,12 +404,18 @@ export default function Screen() {
                     className="mt-1.5 w-full focus-visible:ring-2 focus-visible:ring-emerald-600"
                     style={fieldStyle}
                     value={current}
-                    onChange={function (e) { setCurrent(e.target.value); }}
+                    onChange={function (e) {
+                      setCurrent(e.target.value);
+                    }}
                     aria-invalid={errors.current ? "true" : undefined}
                     aria-describedby={errors.current ? "current-password-error" : undefined}
                   />
                   {errors.current ? (
-                    <p id="current-password-error" className="mt-1.5 text-sm font-medium" style={{ color: c.errText }}>
+                    <p
+                      id="current-password-error"
+                      className="mt-1.5 text-sm font-medium"
+                      style={{ color: c.errText }}
+                    >
                       {errors.current}
                     </p>
                   ) : null}
@@ -333,12 +432,20 @@ export default function Screen() {
                       className="mt-1.5 w-full focus-visible:ring-2 focus-visible:ring-emerald-600"
                       style={fieldStyle}
                       value={next}
-                      onChange={function (e) { setNext(e.target.value); }}
+                      onChange={function (e) {
+                        setNext(e.target.value);
+                      }}
                       aria-invalid={errors.next ? "true" : undefined}
-                      aria-describedby={"password-rules" + (errors.next ? " new-password-error" : "")}
+                      aria-describedby={
+                        "password-rules" + (errors.next ? " new-password-error" : "")
+                      }
                     />
                     {errors.next ? (
-                      <p id="new-password-error" className="mt-1.5 text-sm font-medium" style={{ color: c.errText }}>
+                      <p
+                        id="new-password-error"
+                        className="mt-1.5 text-sm font-medium"
+                        style={{ color: c.errText }}
+                      >
                         {errors.next}
                       </p>
                     ) : null}
@@ -353,12 +460,18 @@ export default function Screen() {
                       className="mt-1.5 w-full focus-visible:ring-2 focus-visible:ring-emerald-600"
                       style={fieldStyle}
                       value={confirm}
-                      onChange={function (e) { setConfirm(e.target.value); }}
+                      onChange={function (e) {
+                        setConfirm(e.target.value);
+                      }}
                       aria-invalid={errors.confirm ? "true" : undefined}
                       aria-describedby={errors.confirm ? "confirm-password-error" : undefined}
                     />
                     {errors.confirm ? (
-                      <p id="confirm-password-error" className="mt-1.5 text-sm font-medium" style={{ color: c.errText }}>
+                      <p
+                        id="confirm-password-error"
+                        className="mt-1.5 text-sm font-medium"
+                        style={{ color: c.errText }}
+                      >
                         {errors.confirm}
                       </p>
                     ) : null}
@@ -368,14 +481,24 @@ export default function Screen() {
                 <div
                   id="password-rules"
                   className="border px-4 py-3"
-                  style={{ backgroundColor: c.surfaceMuted, borderColor: c.border, borderRadius: brand.radius }}
+                  style={{
+                    backgroundColor: c.surfaceMuted,
+                    borderColor: c.border,
+                    borderRadius: brand.radius,
+                  }}
                 >
-                  <h3 className="text-sm font-semibold" style={{ color: c.heading }}>Password requirements</h3>
+                  <h3 className="text-sm font-semibold" style={{ color: c.heading }}>
+                    Password requirements
+                  </h3>
                   <ul className="mt-2 flex flex-col gap-1.5">
                     {rules.map(function (rule) {
                       const Icon = rule.met ? Icons.CheckCircle : Icons.AlertCircle;
                       return (
-                        <li key={rule.id} className="flex items-center gap-2 text-sm" style={{ color: rule.met ? c.okText : c.muted }}>
+                        <li
+                          key={rule.id}
+                          className="flex items-center gap-2 text-sm"
+                          style={{ color: rule.met ? c.okText : c.muted }}
+                        >
                           <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                           <span>{rule.text}</span>
                           <span className="sr-only">{rule.met ? "(met)" : "(not yet met)"}</span>
@@ -389,7 +512,11 @@ export default function Screen() {
                   <UI.Button
                     type="submit"
                     className="focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-600"
-                    style={{ backgroundColor: c.buttonBg, color: c.buttonText, borderRadius: brand.radius }}
+                    style={{
+                      backgroundColor: c.buttonBg,
+                      color: c.buttonText,
+                      borderRadius: brand.radius,
+                    }}
                   >
                     Update password
                   </UI.Button>
@@ -397,7 +524,12 @@ export default function Screen() {
                     type="button"
                     variant="outline"
                     className="focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-600"
-                    style={{ backgroundColor: "transparent", color: c.text, borderColor: c.border, borderRadius: brand.radius }}
+                    style={{
+                      backgroundColor: "transparent",
+                      color: c.text,
+                      borderColor: c.border,
+                      borderRadius: brand.radius,
+                    }}
                     onClick={function () {
                       setCurrent("");
                       setNext("");
@@ -412,12 +544,21 @@ export default function Screen() {
               </form>
             </section>
 
-            <section className="border p-6" style={sectionStyle} aria-labelledby="appearance-heading">
-              <h2 id="appearance-heading" className="text-xl font-semibold" style={{ color: c.heading }}>
+            <section
+              className="border p-6"
+              style={sectionStyle}
+              aria-labelledby="appearance-heading"
+            >
+              <h2
+                id="appearance-heading"
+                className="text-xl font-semibold"
+                style={{ color: c.heading }}
+              >
                 Appearance
               </h2>
               <p className="mt-1.5 text-sm" style={{ color: c.muted }}>
-                Applies immediately and is saved to your profile, so it follows you to your next sign-in.
+                Applies immediately and is saved to your profile, so it follows you to your next
+                sign-in.
               </p>
 
               <fieldset className="mt-5 border-0 p-0 m-0">
@@ -425,7 +566,8 @@ export default function Screen() {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {THEME_OPTIONS.map(function (option) {
                     const selected = themeChoice === option.value;
-                    const previewDark = option.value === "dark" || (option.value === "system" && systemDark);
+                    const previewDark =
+                      option.value === "dark" || (option.value === "system" && systemDark);
                     return (
                       <label
                         key={option.value}
@@ -434,7 +576,11 @@ export default function Screen() {
                         style={{
                           borderColor: selected ? brand.accentColor : c.border,
                           borderWidth: selected ? "2px" : "1px",
-                          backgroundColor: selected ? (isDark ? c.surfaceMuted : "#F2F8F5") : "transparent",
+                          backgroundColor: selected
+                            ? isDark
+                              ? c.surfaceMuted
+                              : "#F2F8F5"
+                            : "transparent",
                           borderRadius: brand.radius,
                         }}
                       >
@@ -445,15 +591,23 @@ export default function Screen() {
                             name="theme"
                             value={option.value}
                             checked={selected}
-                            onChange={function () { handleThemeChange(option.value); }}
+                            onChange={function () {
+                              handleThemeChange(option.value);
+                            }}
                             className="mt-1 h-4 w-4"
                             style={{ accentColor: brand.accentColor }}
                           />
                           <span>
-                            <span className="block text-sm font-semibold" style={{ color: c.heading }}>
+                            <span
+                              className="block text-sm font-semibold"
+                              style={{ color: c.heading }}
+                            >
                               {option.title}
                             </span>
-                            <span className="mt-0.5 block text-xs leading-relaxed" style={{ color: c.muted }}>
+                            <span
+                              className="mt-0.5 block text-xs leading-relaxed"
+                              style={{ color: c.muted }}
+                            >
                               {option.description}
                             </span>
                           </span>
@@ -464,7 +618,10 @@ export default function Screen() {
                           aria-hidden="true"
                         >
                           <span className="w-1/3" style={{ backgroundColor: brand.primaryColor }} />
-                          <span className="flex-1" style={{ backgroundColor: previewDark ? "#0E1A28" : "#F5F7F9" }} />
+                          <span
+                            className="flex-1"
+                            style={{ backgroundColor: previewDark ? "#0E1A28" : "#F5F7F9" }}
+                          />
                         </span>
                       </label>
                     );
@@ -474,10 +631,19 @@ export default function Screen() {
 
               <p className="mt-4 text-sm" style={{ color: c.muted }}>
                 {themeChoice === "system"
-                  ? "Your operating system is currently set to " + (systemDark ? "dark" : "light") + ". The interface follows it without a reload."
-                  : "Using the " + (themeChoice === "dark" ? "dark" : "light") + " palette on every device you sign in from."}
+                  ? "Your operating system is currently set to " +
+                    (systemDark ? "dark" : "light") +
+                    ". The interface follows it without a reload."
+                  : "Using the " +
+                    (themeChoice === "dark" ? "dark" : "light") +
+                    " palette on every device you sign in from."}
               </p>
-              <p className="mt-2 text-sm font-medium" role="status" aria-live="polite" style={{ color: c.okText }}>
+              <p
+                className="mt-2 text-sm font-medium"
+                role="status"
+                aria-live="polite"
+                style={{ color: c.okText }}
+              >
                 {themeStatus}
               </p>
             </section>
@@ -485,24 +651,37 @@ export default function Screen() {
 
           <div className="flex flex-col gap-8">
             <section className="border p-6" style={sectionStyle} aria-labelledby="session-heading">
-              <h2 id="session-heading" className="text-xl font-semibold" style={{ color: c.heading }}>
+              <h2
+                id="session-heading"
+                className="text-xl font-semibold"
+                style={{ color: c.heading }}
+              >
                 This session
               </h2>
               <dl className="mt-4 flex flex-col gap-4 text-sm">
                 <div>
-                  <dt className="text-xs uppercase tracking-wide" style={{ color: c.muted }}>Started</dt>
+                  <dt className="text-xs uppercase tracking-wide" style={{ color: c.muted }}>
+                    Started
+                  </dt>
                   <dd style={{ color: c.text }}>{SESSION.created_at}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-wide" style={{ color: c.muted }}>Last activity</dt>
+                  <dt className="text-xs uppercase tracking-wide" style={{ color: c.muted }}>
+                    Last activity
+                  </dt>
                   <dd style={{ color: c.text }}>{SESSION.last_seen_at}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-wide" style={{ color: c.muted }}>Expires</dt>
+                  <dt className="text-xs uppercase tracking-wide" style={{ color: c.muted }}>
+                    Expires
+                  </dt>
                   <dd style={{ color: c.text }}>{SESSION.expires_on}</dd>
                 </div>
               </dl>
-              <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed" style={{ color: c.muted }}>
+              <p
+                className="mt-4 flex items-start gap-2 text-xs leading-relaxed"
+                style={{ color: c.muted }}
+              >
                 <Icons.Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{SESSION.expires_note}. There is no &ldquo;remember me&rdquo; option.</span>
               </p>
@@ -510,26 +689,42 @@ export default function Screen() {
                 type="button"
                 onClick={handleSignOut}
                 className="mt-5 w-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-600"
-                style={{ backgroundColor: c.buttonBg, color: c.buttonText, borderRadius: brand.radius }}
+                style={{
+                  backgroundColor: c.buttonBg,
+                  color: c.buttonText,
+                  borderRadius: brand.radius,
+                }}
               >
                 Sign out
               </UI.Button>
               <UI.Button
                 type="button"
                 variant="outline"
-                onClick={function () { navigate("users"); }}
+                onClick={function () {
+                  navigate("users");
+                }}
                 className="mt-3 w-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-600"
-                style={{ backgroundColor: "transparent", color: c.text, borderColor: c.border, borderRadius: brand.radius }}
+                style={{
+                  backgroundColor: "transparent",
+                  color: c.text,
+                  borderColor: c.border,
+                  borderRadius: brand.radius,
+                }}
               >
                 Manage users
               </UI.Button>
               <p className="mt-3 text-xs leading-relaxed" style={{ color: c.muted }}>
-                Forgotten passwords are reset by an administrator on the Users page — the assistant sends no email.
+                Forgotten passwords are reset by an administrator on the Users page — the assistant
+                sends no email.
               </p>
             </section>
 
             <section className="border p-6" style={sectionStyle} aria-labelledby="activity-heading">
-              <h2 id="activity-heading" className="text-xl font-semibold" style={{ color: c.heading }}>
+              <h2
+                id="activity-heading"
+                className="text-xl font-semibold"
+                style={{ color: c.heading }}
+              >
                 Recent security activity
               </h2>
               <p className="mt-1.5 text-sm" style={{ color: c.muted }}>
@@ -544,11 +739,17 @@ export default function Screen() {
                       style={{ borderTop: index === 0 ? "none" : "1px solid " + c.border }}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-medium" style={{ color: c.text }}>{event.label}</span>
+                        <span className="text-sm font-medium" style={{ color: c.text }}>
+                          {event.label}
+                        </span>
                         <EventPill kind={event.kind} />
                       </div>
-                      <span className="text-xs" style={{ color: c.muted }}>{event.when}</span>
-                      <span className="text-xs leading-relaxed" style={{ color: c.muted }}>{event.detail}</span>
+                      <span className="text-xs" style={{ color: c.muted }}>
+                        {event.when}
+                      </span>
+                      <span className="text-xs leading-relaxed" style={{ color: c.muted }}>
+                        {event.detail}
+                      </span>
                     </li>
                   );
                 })}
