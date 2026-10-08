@@ -17,10 +17,9 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.config import settings
 from app.database import get_db
-from app.models import LoginLockout
+from app.models import LoginLockout, User
 from app.models import Session as SessionModel
-from app.models import User
-from app.schemas import LoginRequest, MessageResponse, SignupRequest, UserOut
+from app.schemas import ConfigOut, LoginRequest, MessageResponse, SignupRequest, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -105,7 +104,9 @@ def _unauthorized(clear_cookie: bool = True) -> HTTPException:
 def _record_failed_attempt(db: DBSession, email: str, now: datetime.datetime) -> None:
     lockout = db.get(LoginLockout, email)
     if lockout is None:
-        lockout = LoginLockout(email=email, failed_count=0, first_failure_at=None, locked_until=None)
+        lockout = LoginLockout(
+            email=email, failed_count=0, first_failure_at=None, locked_until=None
+        )
         db.add(lockout)
 
     window_expired = (
@@ -206,8 +207,20 @@ def login(payload: LoginRequest, response: Response, db: DbSession) -> User:
     return user
 
 
+@router.get("/config", response_model=ConfigOut)
+def auth_config() -> ConfigOut:
+    """Unauthenticated: lets the sign-in page hide create-account when disabled."""
+    return ConfigOut(self_signup_enabled=settings.SELF_SIGNUP_ENABLED)
+
+
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def signup(payload: SignupRequest, response: Response, db: DbSession) -> User:
+    if not settings.SELF_SIGNUP_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account creation is currently disabled",
+        )
+
     email = _normalize_email(payload.email)
     if not email or not payload.password:
         raise HTTPException(

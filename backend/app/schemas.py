@@ -36,6 +36,13 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ConfigOut(BaseModel):
+    """GET /auth/config: unauthenticated, lets the sign-in page know whether
+    to offer self-service account creation."""
+
+    self_signup_enabled: bool
+
+
 class MessageResponse(BaseModel):
     """A plain success acknowledgement, e.g. for logout."""
 

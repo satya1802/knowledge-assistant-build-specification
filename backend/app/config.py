@@ -50,9 +50,7 @@ class Settings:
     # itself live in the database, not memory, so they survive a restart.
     LOGIN_LOCKOUT_THRESHOLD: int = int(os.getenv("LOGIN_LOCKOUT_THRESHOLD", "5"))
     LOGIN_LOCKOUT_WINDOW_SECONDS: int = int(os.getenv("LOGIN_LOCKOUT_WINDOW_SECONDS", "900"))
-    LOGIN_LOCKOUT_DURATION_SECONDS: int = int(
-        os.getenv("LOGIN_LOCKOUT_DURATION_SECONDS", "900")
-    )
+    LOGIN_LOCKOUT_DURATION_SECONDS: int = int(os.getenv("LOGIN_LOCKOUT_DURATION_SECONDS", "900"))
 
     # Gemini. GEMINI_OFFLINE selects the deterministic local stub provider over
     # the real client (contract: callers never branch on offline mode
@@ -63,6 +61,11 @@ class Settings:
     GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY") or None
     GEMINI_EMBEDDING_MODEL: str = os.getenv("GEMINI_EMBEDDING_MODEL", "text-embedding-004")
     GEMINI_ANSWER_MODEL: str = os.getenv("GEMINI_ANSWER_MODEL", "gemini-2.5-flash-lite")
+
+    # Admin-controlled switch for self-service account creation (AC-008/009).
+    # True by default so a fresh clone's sign-in page offers "create account"
+    # out of the box; an admin sets this to 0 to hide/disable it.
+    SELF_SIGNUP_ENABLED: bool = _as_bool(os.getenv("SELF_SIGNUP_ENABLED"), default=True)
 
     def __init__(self) -> None:
         # Fail fast: a service that starts without a key, then falls over on

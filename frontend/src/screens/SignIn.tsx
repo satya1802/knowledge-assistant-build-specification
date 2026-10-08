@@ -18,7 +18,6 @@ type AuthUser = {
   is_enabled: boolean;
 };
 
-const SELF_SIGNUP_ENABLED = true;
 const MIN_PASSWORD_LENGTH = 10;
 const GENERIC_ERROR = "Incorrect email or password.";
 const LOCK_MINUTES = 15;
@@ -48,13 +47,17 @@ export default function Screen() {
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [signUpErrors, setSignUpErrors] = React.useState<Record<string, string>>({});
   const [signUpLoading, setSignUpLoading] = React.useState(false);
-  const [createdAccount, setCreatedAccount] = React.useState<AuthUser | null>(null);
 
   const [showExpiredNotice, setShowExpiredNotice] = React.useState(true);
 
+  // Whether the server currently allows self-service account creation. Starts
+  // false so the create-account tab never flashes into view before the check
+  // resolves; only a confirmed `true` response renders it.
+  const [signupEnabled, setSignupEnabled] = React.useState(false);
+
   const tabRefs = { signin: React.useRef(null), signup: React.useRef(null) };
 
-  const tabs = SELF_SIGNUP_ENABLED
+  const tabs = signupEnabled
     ? [
         { id: "signin", label: "Sign in" },
         { id: "signup", label: "Create account" },
@@ -65,16 +68,40 @@ export default function Screen() {
   // the server will say who it belongs to and we can skip straight to Chat.
   React.useEffect(function () {
     let cancelled = false;
-    auth
-      .refresh()
-      .then(function (user) {
-        if (!cancelled && user) navigate("chat");
-      });
+    auth.refresh().then(function (user) {
+      if (!cancelled && user) navigate("chat");
+    });
     return function () {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Self-signup is a server-side switch: read it fresh on every load rather
+  // than hard-coding an assumption client-side.
+  React.useEffect(function () {
+    let cancelled = false;
+    apiFetch<{ self_signup_enabled: boolean }>("/auth/config")
+      .then(function (config) {
+        if (!cancelled) setSignupEnabled(Boolean(config.self_signup_enabled));
+      })
+      .catch(function () {
+        if (!cancelled) setSignupEnabled(false);
+      });
+    return function () {
+      cancelled = true;
+    };
+  }, []);
+
+  // If the create-account tab is selected but the server switch turns off
+  // (or resolves false after a prior session), fall back to sign-in rather
+  // than leaving a stale tab selected with no panel to show.
+  React.useEffect(
+    function () {
+      if (tab === "signup" && !signupEnabled) setTab("signin");
+    },
+    [tab, signupEnabled],
+  );
 
   function onTabKeyDown(event, index) {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
@@ -147,17 +174,22 @@ export default function Screen() {
         method: "POST",
         body: JSON.stringify({ email: key, password: newPassword }),
       });
+      // Success signs the visitor in immediately -- same as the sign-in form --
+      // rather than leaving them on a confirmation screen they have to click
+      // through.
+      auth.setUser(user);
       setSignUpLoading(false);
-      setCreatedAccount(user);
-      setNewEmail("");
-      setNewPassword("");
-      setConfirmPassword("");
+      navigate("chat");
     } catch (err) {
+      // A rejected signup must never leave the UI signed in. The server's own
+      // message (e.g. duplicate email) is shown against the email field, and
+      // the form is left exactly as the visitor typed it.
       setSignUpLoading(false);
-      setSignUpErrors({
-        email:
-          "An account already exists for this email, or it could not be created. Sign in instead, or ask an administrator to reset the password.",
-      });
+      const message =
+        err instanceof ApiError && err.message
+          ? err.message
+          : "This account could not be created. Sign in instead, or ask an administrator for help.";
+      setSignUpErrors({ email: message });
     }
   }
 
@@ -435,61 +467,7 @@ export default function Screen() {
                   aria-labelledby="tab-signup"
                   className="pt-6"
                 >
-                  {createdAccount ? (
-                    <div className="space-y-5">
-                      <div
-                        className="flex items-start gap-3 rounded-lg border p-4"
-                        style={{
-                          borderRadius: brand.radius,
-                          borderColor: brand.accentColor,
-                          backgroundColor: "#EDF6F2",
-                        }}
-                      >
-                        <Icons.CheckCircle
-                          className="mt-0.5 h-4 w-4 flex-none"
-                          style={{ color: "#1F6B50" }}
-                          aria-hidden="true"
-                        />
-                        <div className="text-sm leading-relaxed" style={{ color: "#174535" }}>
-                          <p className="font-semibold">Account created.</p>
-                          <p className="mt-1">
-                            You are signed in as {createdAccount.email} with the{" "}
-                            {createdAccount.role} role.
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => navigate("chat")}
-                        className={
-                          "inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 " +
-                          focusRing
-                        }
-                        style={{
-                          backgroundColor: brand.primaryColor,
-                          borderRadius: brand.radius,
-                        }}
-                      >
-                        Continue to Chat
-                        <Icons.ArrowRight className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCreatedAccount(null);
-                          setTab("signin");
-                        }}
-                        className={
-                          "w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 " +
-                          focusRing
-                        }
-                        style={{ borderRadius: brand.radius }}
-                      >
-                        Back to sign in
-                      </button>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleSignUp} noValidate className="space-y-5">
+                  <form onSubmit={handleSignUp} noValidate className="space-y-5">
                       <p className="text-sm leading-relaxed" style={{ color: brand.neutralColor }}>
                         Self-service account creation is currently enabled. The role shown after
                         creation is assigned by the server.
@@ -600,7 +578,6 @@ export default function Screen() {
                         {signUpLoading ? "Creating account…" : "Create account"}
                       </button>
                     </form>
-                  )}
                 </div>
               )}
             </div>
