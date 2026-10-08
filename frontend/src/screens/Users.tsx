@@ -7,7 +7,7 @@ import { useNavigate } from "@/lib/navigate";
 import { apiFetch, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-const { Button, Card, CardContent, Input, Label, Table, THead, TBody, TR, TH, TD } = UI;
+const { Button, Input, Label, Table, THead, TBody, TR, TH, TD } = UI;
 
 type ApiUser = {
   id: string | number;
@@ -384,11 +384,12 @@ export default function Screen() {
       setQuery("");
       setRoleFilter("all");
       setStatusFilter("all");
-      announce(`Account created for ${created.email}. No email is sent — give them the password directly.`);
+      announce(
+        `Account created for ${created.email}. No email is sent — give them the password directly.`,
+      );
       closeAddDialog();
     } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : "Something went wrong. Try again.";
+      const message = err instanceof ApiError ? err.message : "Something went wrong. Try again.";
       setAddErrors({ form: message });
     } finally {
       setAddSubmitting(false);
@@ -419,8 +420,7 @@ export default function Screen() {
       announce(`Password reset for ${updated.email}. Any sign-in lock has been cleared.`);
       closeResetDialog();
     } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : "Something went wrong. Try again.";
+      const message = err instanceof ApiError ? err.message : "Something went wrong. Try again.";
       setResetErrors({ form: message });
     } finally {
       setResetSubmitting(false);
@@ -548,11 +548,7 @@ export default function Screen() {
             hint="Can upload, delete and manage users"
           />
           <StatTile label="Active" value={counts.active} hint="Able to sign in right now" />
-          <StatTile
-            label="Disabled"
-            value={counts.attention}
-            hint="Cannot sign in until you act"
-          />
+          <StatTile label="Disabled" value={counts.attention} hint="Cannot sign in until you act" />
         </div>
       </section>
 
