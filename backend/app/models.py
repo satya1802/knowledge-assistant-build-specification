@@ -10,12 +10,12 @@ per email, server-side, so lockout state survives a process restart
 import datetime
 import uuid
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
-__all__ = ["Base", "User", "Session", "LoginLockout", "Document"]
+__all__ = ["Base", "User", "Session", "LoginLockout", "Document", "DocumentChunk"]
 
 
 def _uuid() -> str:
@@ -107,9 +107,35 @@ class Document(Base):
     file_type: Mapped[str] = mapped_column(String(20), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="processing")
+    # Short, human-readable failure reason (AC-030); null unless status is
+    # "failed". Never a raw exception repr or traceback.
+    status_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Set once ingestion succeeds; 0 until then and on failure.
+    chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     uploaded_by: Mapped[str] = mapped_column(
         String(32), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     uploaded_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.datetime.utcnow
     )
+
+    chunks: Mapped[list["DocumentChunk"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
+    )
+
+
+class DocumentChunk(Base):
+    """One citeable chunk of extracted text, produced by ingestion
+    (US-009-1/US-010-1). Deleting its document deletes it (ORM cascade)."""
+
+    __tablename__ = "document_chunks"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    document_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    document: Mapped["Document"] = relationship(back_populates="chunks")

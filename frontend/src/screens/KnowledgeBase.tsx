@@ -159,6 +159,65 @@ export default function Screen() {
     [loadDocuments],
   );
 
+  // AC-029: live status without a manual refresh. Subscribes to the SSE
+  // stream and upserts each `document` event into the table; falls back to
+  // polling GET /documents if the stream errors (connection refused, proxy
+  // that strips SSE, etc). Both are torn down on unmount.
+  React.useEffect(() => {
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let source: EventSource | null = null;
+
+    function startPolling() {
+      if (pollTimer || cancelled) return;
+      pollTimer = setInterval(() => {
+        loadDocuments();
+      }, 5000);
+    }
+
+    function stopPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    function upsert(doc: ApiDocument) {
+      setDocuments((prev) => {
+        const idx = prev.findIndex((d) => String(d.id) === String(doc.id));
+        if (idx === -1) return [doc, ...prev];
+        const next = prev.slice();
+        next[idx] = { ...next[idx], ...doc };
+        return next;
+      });
+    }
+
+    try {
+      source = new EventSource(`${API_BASE_URL}/documents/stream`, { withCredentials: true });
+      source.addEventListener("document", (event: MessageEvent) => {
+        if (cancelled) return;
+        try {
+          upsert(JSON.parse(event.data) as ApiDocument);
+        } catch {
+          // Malformed payload for this one event -- ignore it, the next
+          // event or a poll fallback will catch the row up.
+        }
+      });
+      source.onerror = () => {
+        if (cancelled) return;
+        startPolling();
+      };
+    } catch {
+      startPolling();
+    }
+
+    return () => {
+      cancelled = true;
+      stopPolling();
+      if (source) source.close();
+    };
+  }, [loadDocuments]);
+
   // Dialog: focus management, Escape to close, focus returns to the trigger.
   React.useEffect(() => {
     if (!pendingDelete) return undefined;

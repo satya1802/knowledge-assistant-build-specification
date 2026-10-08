@@ -10,6 +10,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 
 from app import models  # noqa: F401 -- imported so the tables register before create_all
 from app.database import Base, engine
@@ -46,6 +47,22 @@ app.add_middleware(
 # The scaffold ships no migrations, so the tables are created from the models on
 # startup. Replace this with Alembic before anything holds data worth keeping.
 Base.metadata.create_all(bind=engine)
+
+# `create_all` only ever creates missing *tables* -- it never alters one that
+# already exists. US-009-1 adds two columns to a `documents` table that may
+# already have rows from before this ticket, so they are added by hand here,
+# additively and idempotently (never a rename or drop), the first time either
+# is missing.
+_inspector = inspect(engine)
+if "documents" in _inspector.get_table_names():
+    _existing_columns = {c["name"] for c in _inspector.get_columns("documents")}
+    with engine.begin() as _conn:
+        if "status_reason" not in _existing_columns:
+            _conn.execute(text("ALTER TABLE documents ADD COLUMN status_reason VARCHAR(500)"))
+        if "chunk_count" not in _existing_columns:
+            _conn.execute(
+                text("ALTER TABLE documents ADD COLUMN chunk_count INTEGER NOT NULL DEFAULT 0")
+            )
 
 app.include_router(auth.router)
 app.include_router(account.router)

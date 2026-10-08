@@ -54,6 +54,55 @@ const DOC_PROCESSING = {
   uploaded_at: "2026-10-08T08:40:00Z",
 };
 
+const DOC_FAILED = {
+  id: 103,
+  filename: "Corrupt-Scan.pdf",
+  file_type: "pdf",
+  size_bytes: 120000,
+  status: "failed",
+  status_reason: "The file could not be parsed: unsupported PDF encoding.",
+  chunk_count: 0,
+  uploaded_by: "priya.raman@northgate.co",
+  uploaded_at: "2026-10-08T07:00:00Z",
+};
+
+/** A minimal, controllable stand-in for the browser's EventSource, so
+ * AC-029 can be driven deterministically: tests hold `instances[0]` and fire
+ * the "document" event or the error handler themselves. */
+class MockEventSource {
+  static instances: MockEventSource[] = [];
+  url: string;
+  withCredentials: boolean;
+  closed = false;
+  onerror: ((ev: Event) => void) | null = null;
+  private listeners: Record<string, Array<(ev: MessageEvent) => void>> = {};
+
+  constructor(url: string, init?: { withCredentials?: boolean }) {
+    this.url = url;
+    this.withCredentials = !!init?.withCredentials;
+    MockEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: (ev: MessageEvent) => void) {
+    this.listeners[type] = this.listeners[type] || [];
+    this.listeners[type].push(listener);
+  }
+
+  emit(type: string, data: unknown) {
+    (this.listeners[type] || []).forEach((listener) =>
+      listener({ data: JSON.stringify(data) } as MessageEvent),
+    );
+  }
+
+  triggerError() {
+    if (this.onerror) this.onerror(new Event("error"));
+  }
+
+  close() {
+    this.closed = true;
+  }
+}
+
 function renderScreen() {
   return render(
     <MemoryRouter>
@@ -77,11 +126,14 @@ beforeEach(() => {
     refresh: vi.fn(),
     signOut: vi.fn(),
   });
+  MockEventSource.instances = [];
+  vi.stubGlobal("EventSource", MockEventSource as unknown as typeof EventSource);
 });
 
 afterEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("KnowledgeBase screen", () => {
@@ -286,5 +338,115 @@ describe("KnowledgeBase screen", () => {
     expect(document.getElementById("kb-file-input")).not.toBeInTheDocument();
     expect(screen.queryByText(/upload documents/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/delete employee-handbook/i)).not.toBeInTheDocument();
+  });
+
+  it("AC-046: lists name, type, size, upload date, status and chunk count from the API", async () => {
+    mockApiFetch.mockResolvedValueOnce({ items: [DOC_READY] });
+    renderScreen();
+    await waitFor(() => expect(screen.getByText(DOC_READY.filename)).toBeInTheDocument());
+    const row = screen.getByText(DOC_READY.filename).closest("tr") as HTMLElement;
+    expect(within(row).getByText("PDF")).toBeInTheDocument();
+    expect(within(row).getByText(/4\.2 MB/)).toBeInTheDocument();
+    expect(within(row).getByText("Ready")).toBeInTheDocument();
+    expect(within(row).getByText("182")).toBeInTheDocument();
+  });
+
+  it("AC-047: typing part of a name filters the table case-insensitively", async () => {
+    const user = userEvent.setup();
+    mockApiFetch.mockResolvedValueOnce({ items: [DOC_READY, DOC_PROCESSING] });
+    renderScreen();
+    await waitFor(() => expect(screen.getByText(DOC_READY.filename)).toBeInTheDocument());
+
+    await user.type(screen.getByLabelText(/search by document name/i), "EMPLOYEE-handbook");
+    await waitFor(() => {
+      expect(screen.getByText(DOC_READY.filename)).toBeInTheDocument();
+      expect(screen.queryByText(DOC_PROCESSING.filename)).not.toBeInTheDocument();
+    });
+  });
+
+  it("AC-048: filtering by status and by file type narrows the list, and clearing restores it", async () => {
+    const user = userEvent.setup();
+    mockApiFetch.mockResolvedValueOnce({ items: [DOC_READY, DOC_PROCESSING, DOC_FAILED] });
+    renderScreen();
+    await waitFor(() => expect(screen.getByText(DOC_READY.filename)).toBeInTheDocument());
+
+    await user.selectOptions(screen.getByLabelText(/^status$/i), "failed");
+    await waitFor(() => {
+      expect(screen.getByText(DOC_FAILED.filename)).toBeInTheDocument();
+      expect(screen.queryByText(DOC_READY.filename)).not.toBeInTheDocument();
+      expect(screen.queryByText(DOC_PROCESSING.filename)).not.toBeInTheDocument();
+    });
+
+    await user.selectOptions(screen.getByLabelText(/^status$/i), "all");
+    await user.selectOptions(screen.getByLabelText(/file type/i), "DOCX");
+    await waitFor(() => {
+      expect(screen.getByText(DOC_PROCESSING.filename)).toBeInTheDocument();
+      expect(screen.queryByText(DOC_READY.filename)).not.toBeInTheDocument();
+      expect(screen.queryByText(DOC_FAILED.filename)).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /clear filters/i }));
+    await waitFor(() => {
+      expect(screen.getByText(DOC_READY.filename)).toBeInTheDocument();
+      expect(screen.getByText(DOC_PROCESSING.filename)).toBeInTheDocument();
+      expect(screen.getByText(DOC_FAILED.filename)).toBeInTheDocument();
+    });
+  });
+
+  it("AC-049 / AC-031: a failed document's status_reason is visible in its row without affecting other rows", async () => {
+    mockApiFetch.mockResolvedValueOnce({ items: [DOC_READY, DOC_FAILED] });
+    renderScreen();
+    await waitFor(() => expect(screen.getByText(DOC_FAILED.filename)).toBeInTheDocument());
+
+    const failedRow = screen.getByText(DOC_FAILED.filename).closest("tr") as HTMLElement;
+    expect(within(failedRow).getByText(DOC_FAILED.status_reason)).toBeInTheDocument();
+    expect(within(failedRow).getByText("Failed")).toBeInTheDocument();
+
+    const readyRow = screen.getByText(DOC_READY.filename).closest("tr") as HTMLElement;
+    expect(within(readyRow).getByText("Ready")).toBeInTheDocument();
+    expect(within(readyRow).queryByText(/could not be parsed/i)).not.toBeInTheDocument();
+  });
+
+  it("AC-029: subscribes to GET /documents/stream with credentials and applies a document event without reload", async () => {
+    mockApiFetch.mockResolvedValueOnce({ items: [DOC_PROCESSING] });
+    renderScreen();
+    await waitFor(() => expect(screen.getByText(DOC_PROCESSING.filename)).toBeInTheDocument());
+
+    expect(MockEventSource.instances).toHaveLength(1);
+    const source = MockEventSource.instances[0];
+    expect(source.url).toContain("/documents/stream");
+    expect(source.withCredentials).toBe(true);
+
+    source.emit("document", { ...DOC_PROCESSING, status: "ready", chunk_count: 40 });
+
+    const row = await waitFor(() => screen.getByText(DOC_PROCESSING.filename).closest("tr"));
+    await waitFor(() => expect(within(row as HTMLElement).getByText("Ready")).toBeInTheDocument());
+    expect(mockApiFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("AC-029: falls back to polling GET /documents when the stream errors", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockApiFetch.mockResolvedValue({ items: [DOC_PROCESSING] });
+    renderScreen();
+    await vi.waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+
+    const source = MockEventSource.instances[0];
+    source.triggerError();
+
+    await vi.advanceTimersByTimeAsync(5000);
+    await vi.waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(2));
+
+    await vi.advanceTimersByTimeAsync(5000);
+    await vi.waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(3));
+  });
+
+  it("AC-029: closes the stream and stops polling on unmount", async () => {
+    mockApiFetch.mockResolvedValueOnce({ items: [DOC_PROCESSING] });
+    const { unmount } = renderScreen();
+    await waitFor(() => expect(screen.getByText(DOC_PROCESSING.filename)).toBeInTheDocument());
+
+    const source = MockEventSource.instances[0];
+    unmount();
+    expect(source.closed).toBe(true);
   });
 });

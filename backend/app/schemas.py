@@ -103,6 +103,8 @@ class DocumentOut(BaseModel):
     file_type: str
     size_bytes: int
     status: str
+    status_reason: str | None = None
+    chunk_count: int = 0
     uploaded_by: str | None
     uploaded_at: datetime
 

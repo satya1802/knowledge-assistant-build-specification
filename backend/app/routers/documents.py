@@ -9,22 +9,32 @@ status "processing". Writes (`POST`, `DELETE`) require
 user.
 """
 
+import asyncio
+import json
 import mimetypes
 import uuid
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 
-from app.config import settings
+from app.database import SessionLocal
 from app.models import Document
 from app.routers.auth import CurrentUser, DbSession
 from app.schemas import DocumentOut
 from app.services.authz import AdminUser
+from app.services.ingestion.events import broker
+from app.services.ingestion.pipeline import run_ingestion
+from app.services.storage import storage_dir as _storage_dir
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+# Fixed keep-alive interval for GET /documents/stream (contract): a `: ping`
+# comment line is sent whenever this many seconds pass with no status change,
+# so the connection never looks frozen to a client or intermediary proxy.
+_STREAM_PING_INTERVAL_SECONDS = 15
 
 # AC-024: the only formats accepted. Keyed by lower-cased file extension;
 # each maps to the content types a browser/client may reasonably send for it.
@@ -54,12 +64,6 @@ _CHUNK_SIZE = 1024 * 1024
 UploadFileParam = Annotated[UploadFile, File(...)]
 
 
-def _storage_dir() -> Path:
-    path = Path(settings.DOCUMENT_STORAGE_DIR)
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 def _validate_format(filename: str, content_type: str | None) -> str:
     """Return the lower-cased extension, or raise 400 (AC-024)."""
     ext = Path(filename).suffix.lower()
@@ -85,10 +89,65 @@ def list_documents(current_user: CurrentUser, db: DbSession) -> list[Document]:
     return list(db.scalars(select(Document).order_by(Document.uploaded_at.desc())).all())
 
 
+@router.get("/stream")
+async def stream_documents(current_user: CurrentUser, request: Request) -> StreamingResponse:
+    """AC-029/contract: one `event: document` per status change, a `: ping`
+    keep-alive on a fixed interval, closes cleanly when the client disconnects.
+
+    Declared ahead of `GET /{document_id}` so the literal path `/stream` is
+    matched first and never treated as a document id.
+    """
+    queue = broker.subscribe()
+
+    async def event_source():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    document_id = await asyncio.wait_for(
+                        queue.get(), timeout=_STREAM_PING_INTERVAL_SECONDS
+                    )
+                except TimeoutError:
+                    yield ": ping\n\n"
+                    continue
+
+                db = SessionLocal()
+                try:
+                    document = db.get(Document, document_id)
+                    if document is None:
+                        continue
+                    payload = DocumentOut.model_validate(document).model_dump(mode="json")
+                finally:
+                    db.close()
+                yield f"event: document\ndata: {json.dumps(payload)}\n\n"
+        finally:
+            broker.unsubscribe(queue)
+
+    return StreamingResponse(
+        event_source(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/{document_id}", response_model=DocumentOut)
+def get_document(
+    document_id: str,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> Document:
+    document = db.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    return document
+
+
 @router.post("", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     admin: AdminUser,
     db: DbSession,
+    background_tasks: BackgroundTasks,
     file: UploadFileParam,
 ) -> Document:
     original_filename = file.filename or ""
@@ -138,6 +197,12 @@ async def upload_document(
     db.add(document)
     db.commit()
     db.refresh(document)
+
+    # AC-028: scheduled, not awaited -- the response below returns 201
+    # immediately; ingestion runs afterwards in a worker thread with its own
+    # DB session (app.services.ingestion.pipeline.run_ingestion).
+    background_tasks.add_task(run_ingestion, document.id)
+
     return document
 
 
