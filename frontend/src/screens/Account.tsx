@@ -125,7 +125,11 @@ export default function Screen() {
   return (
     <div
       className="w-full min-h-full px-6 py-8 sm:px-10"
-      style={{ backgroundColor: "var(--brand-background)", color: "var(--brand-fg)", fontFamily: brand.fontBody }}
+      style={{
+        backgroundColor: "var(--brand-background)",
+        color: "var(--brand-fg)",
+        fontFamily: brand.fontBody,
+      }}
     >
       <div className="mx-auto w-full max-w-6xl">
         <header className="mb-8">
@@ -135,7 +139,10 @@ export default function Screen() {
           >
             Account
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--brand-fg-muted)" }}>
+          <p
+            className="mt-2 max-w-2xl text-sm leading-relaxed"
+            style={{ color: "var(--brand-fg-muted)" }}
+          >
             Manage the password for your Knowledge Assistant sign-in and choose how the interface
             looks on this device.
           </p>
@@ -159,7 +166,11 @@ export default function Screen() {
               {initials || "?"}
             </span>
             <div>
-              <h2 id="profile-heading" className="text-lg font-semibold" style={{ color: "var(--brand-fg-heading)" }}>
+              <h2
+                id="profile-heading"
+                className="text-lg font-semibold"
+                style={{ color: "var(--brand-fg-heading)" }}
+              >
                 {email || "Loading…"}
               </h2>
               <p
@@ -185,7 +196,11 @@ export default function Screen() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 flex flex-col gap-8">
             <section className="border p-6" style={sectionStyle} aria-labelledby="password-heading">
-              <h2 id="password-heading" className="text-xl font-semibold" style={{ color: "var(--brand-fg-heading)" }}>
+              <h2
+                id="password-heading"
+                className="text-xl font-semibold"
+                style={{ color: "var(--brand-fg-heading)" }}
+              >
                 Change password
               </h2>
               <p className="mt-1.5 text-sm" style={{ color: "var(--brand-fg-muted)" }}>
@@ -199,9 +214,17 @@ export default function Screen() {
                     className="mt-5 flex items-start gap-2 border px-4 py-3 text-sm"
                     style={{
                       backgroundColor:
-                        formStatus.kind === "success" ? "var(--brand-success-bg)" : "var(--brand-danger-bg)",
-                      color: formStatus.kind === "success" ? "var(--brand-success-fg)" : "var(--brand-danger-fg)",
-                      borderColor: formStatus.kind === "success" ? "var(--brand-success-fg)" : "var(--brand-danger-fg)",
+                        formStatus.kind === "success"
+                          ? "var(--brand-success-bg)"
+                          : "var(--brand-danger-bg)",
+                      color:
+                        formStatus.kind === "success"
+                          ? "var(--brand-success-fg)"
+                          : "var(--brand-danger-fg)",
+                      borderColor:
+                        formStatus.kind === "success"
+                          ? "var(--brand-success-fg)"
+                          : "var(--brand-danger-fg)",
                       borderRadius: brand.radius,
                     }}
                   >
@@ -236,7 +259,11 @@ export default function Screen() {
                     aria-describedby={errors.current ? "current-password-error" : undefined}
                   />
                   {errors.current ? (
-                    <p id="current-password-error" className="mt-1.5 text-sm font-medium" style={{ color: "var(--brand-danger-fg)" }}>
+                    <p
+                      id="current-password-error"
+                      className="mt-1.5 text-sm font-medium"
+                      style={{ color: "var(--brand-danger-fg)" }}
+                    >
                       {errors.current}
                     </p>
                   ) : null}
@@ -255,10 +282,16 @@ export default function Screen() {
                       value={next}
                       onChange={(e) => setNext(e.target.value)}
                       aria-invalid={errors.next ? "true" : undefined}
-                      aria-describedby={"password-rules" + (errors.next ? " new-password-error" : "")}
+                      aria-describedby={
+                        "password-rules" + (errors.next ? " new-password-error" : "")
+                      }
                     />
                     {errors.next ? (
-                      <p id="new-password-error" className="mt-1.5 text-sm font-medium" style={{ color: "var(--brand-danger-fg)" }}>
+                      <p
+                        id="new-password-error"
+                        className="mt-1.5 text-sm font-medium"
+                        style={{ color: "var(--brand-danger-fg)" }}
+                      >
                         {errors.next}
                       </p>
                     ) : null}
@@ -278,7 +311,11 @@ export default function Screen() {
                       aria-describedby={errors.confirm ? "confirm-password-error" : undefined}
                     />
                     {errors.confirm ? (
-                      <p id="confirm-password-error" className="mt-1.5 text-sm font-medium" style={{ color: "var(--brand-danger-fg)" }}>
+                      <p
+                        id="confirm-password-error"
+                        className="mt-1.5 text-sm font-medium"
+                        style={{ color: "var(--brand-danger-fg)" }}
+                      >
                         {errors.confirm}
                       </p>
                     ) : null}
@@ -294,7 +331,10 @@ export default function Screen() {
                     borderRadius: brand.radius,
                   }}
                 >
-                  <h3 className="text-sm font-semibold" style={{ color: "var(--brand-fg-heading)" }}>
+                  <h3
+                    className="text-sm font-semibold"
+                    style={{ color: "var(--brand-fg-heading)" }}
+                  >
                     Password requirements
                   </h3>
                   <ul className="mt-2 flex flex-col gap-1.5">
@@ -304,7 +344,9 @@ export default function Screen() {
                         <li
                           key={rule.id}
                           className="flex items-center gap-2 text-sm"
-                          style={{ color: rule.met ? "var(--brand-success-fg)" : "var(--brand-fg-muted)" }}
+                          style={{
+                            color: rule.met ? "var(--brand-success-fg)" : "var(--brand-fg-muted)",
+                          }}
                         >
                           <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                           <span>{rule.text}</span>
@@ -352,8 +394,16 @@ export default function Screen() {
               </form>
             </section>
 
-            <section className="border p-6" style={sectionStyle} aria-labelledby="appearance-heading">
-              <h2 id="appearance-heading" className="text-xl font-semibold" style={{ color: "var(--brand-fg-heading)" }}>
+            <section
+              className="border p-6"
+              style={sectionStyle}
+              aria-labelledby="appearance-heading"
+            >
+              <h2
+                id="appearance-heading"
+                className="text-xl font-semibold"
+                style={{ color: "var(--brand-fg-heading)" }}
+              >
                 Appearance
               </h2>
               <p className="mt-1.5 text-sm" style={{ color: "var(--brand-fg-muted)" }}>
@@ -367,7 +417,8 @@ export default function Screen() {
                   {THEME_OPTIONS.map((option) => {
                     const selected = theme === option.value;
                     const previewDark =
-                      option.value === "dark" || (option.value === "system" && resolvedTheme === "dark");
+                      option.value === "dark" ||
+                      (option.value === "system" && resolvedTheme === "dark");
                     return (
                       <label
                         key={option.value}
@@ -392,10 +443,16 @@ export default function Screen() {
                             style={{ accentColor: "var(--brand-accent)" }}
                           />
                           <span>
-                            <span className="block text-sm font-semibold" style={{ color: "var(--brand-fg-heading)" }}>
+                            <span
+                              className="block text-sm font-semibold"
+                              style={{ color: "var(--brand-fg-heading)" }}
+                            >
                               {option.title}
                             </span>
-                            <span className="mt-0.5 block text-xs leading-relaxed" style={{ color: "var(--brand-fg-muted)" }}>
+                            <span
+                              className="mt-0.5 block text-xs leading-relaxed"
+                              style={{ color: "var(--brand-fg-muted)" }}
+                            >
                               {option.description}
                             </span>
                           </span>
@@ -405,8 +462,14 @@ export default function Screen() {
                           style={{ borderColor: "var(--brand-border)", borderRadius: "0.375rem" }}
                           aria-hidden="true"
                         >
-                          <span className="w-1/3" style={{ backgroundColor: "var(--brand-primary)" }} />
-                          <span className="flex-1" style={{ backgroundColor: previewDark ? "#0e1a28" : "#f5f7f9" }} />
+                          <span
+                            className="w-1/3"
+                            style={{ backgroundColor: "var(--brand-primary)" }}
+                          />
+                          <span
+                            className="flex-1"
+                            style={{ backgroundColor: previewDark ? "#0e1a28" : "#f5f7f9" }}
+                          />
                         </span>
                       </label>
                     );
@@ -419,9 +482,16 @@ export default function Screen() {
                   ? "Your operating system is currently set to " +
                     (resolvedTheme === "dark" ? "dark" : "light") +
                     ". The interface follows it without a reload."
-                  : "Using the " + (theme === "dark" ? "dark" : "light") + " palette on every device you sign in from."}
+                  : "Using the " +
+                    (theme === "dark" ? "dark" : "light") +
+                    " palette on every device you sign in from."}
               </p>
-              <p className="mt-2 text-sm font-medium" role="status" aria-live="polite" style={{ color: "var(--brand-success-fg)" }}>
+              <p
+                className="mt-2 text-sm font-medium"
+                role="status"
+                aria-live="polite"
+                style={{ color: "var(--brand-success-fg)" }}
+              >
                 {themeStatus}
               </p>
             </section>
@@ -429,26 +499,44 @@ export default function Screen() {
 
           <div className="flex flex-col gap-8">
             <section className="border p-6" style={sectionStyle} aria-labelledby="session-heading">
-              <h2 id="session-heading" className="text-xl font-semibold" style={{ color: "var(--brand-fg-heading)" }}>
+              <h2
+                id="session-heading"
+                className="text-xl font-semibold"
+                style={{ color: "var(--brand-fg-heading)" }}
+              >
                 This session
               </h2>
               <dl className="mt-4 flex flex-col gap-4 text-sm">
                 <div>
-                  <dt className="text-xs uppercase tracking-wide" style={{ color: "var(--brand-fg-muted)" }}>
+                  <dt
+                    className="text-xs uppercase tracking-wide"
+                    style={{ color: "var(--brand-fg-muted)" }}
+                  >
                     Signed in as
                   </dt>
                   <dd style={{ color: "var(--brand-fg)" }}>{email || "—"}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-wide" style={{ color: "var(--brand-fg-muted)" }}>
+                  <dt
+                    className="text-xs uppercase tracking-wide"
+                    style={{ color: "var(--brand-fg-muted)" }}
+                  >
                     Role
                   </dt>
-                  <dd style={{ color: "var(--brand-fg)" }}>{isAdmin ? "Administrator" : "Employee"}</dd>
+                  <dd style={{ color: "var(--brand-fg)" }}>
+                    {isAdmin ? "Administrator" : "Employee"}
+                  </dd>
                 </div>
               </dl>
-              <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed" style={{ color: "var(--brand-fg-muted)" }}>
+              <p
+                className="mt-4 flex items-start gap-2 text-xs leading-relaxed"
+                style={{ color: "var(--brand-fg-muted)" }}
+              >
                 <Icons.Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>There is no &ldquo;remember me&rdquo; option; this session expires automatically from inactivity.</span>
+                <span>
+                  There is no &ldquo;remember me&rdquo; option; this session expires automatically
+                  from inactivity.
+                </span>
               </p>
               <UI.Button
                 type="button"
@@ -476,7 +564,10 @@ export default function Screen() {
               >
                 Manage users
               </UI.Button>
-              <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--brand-fg-muted)" }}>
+              <p
+                className="mt-3 text-xs leading-relaxed"
+                style={{ color: "var(--brand-fg-muted)" }}
+              >
                 Forgotten passwords are reset by an administrator on the Users page — the assistant
                 sends no email.
               </p>
