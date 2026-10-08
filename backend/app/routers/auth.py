@@ -6,6 +6,7 @@ browser in an HTTP-only cookie -- never a JWT, never a client-readable value.
 
 import datetime
 import secrets
+from typing import Annotated
 
 import bcrypt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
@@ -21,6 +22,12 @@ from app.schemas import LoginRequest, MessageResponse, SignupRequest, UserOut
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 GENERIC_LOGIN_ERROR = "Incorrect email or password"
+
+# Module-level Annotated aliases: ruff's B008 flags a `Depends(...)` call sitting
+# directly in an argument default, so the call is made once here instead and
+# referenced via `Annotated`, which FastAPI resolves identically.
+DbSession = Annotated[DBSession, Depends(get_db)]
+SessionCookie = Annotated[str | None, Cookie(alias="session_id")]
 
 
 def _hash_password(password: str) -> str:
@@ -63,8 +70,8 @@ def _create_session(db: DBSession, user: User) -> str:
 
 
 def get_current_user(
-    session_id: str | None = Cookie(default=None, alias="session_id"),
-    db: DBSession = Depends(get_db),
+    db: DbSession,
+    session_id: SessionCookie = None,
 ) -> User:
     """Resolve the session cookie to a user, or 401.
 
@@ -86,15 +93,20 @@ def get_current_user(
     return user
 
 
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
 @router.post("/login", response_model=UserOut)
-def login(payload: LoginRequest, response: Response, db: DBSession = Depends(get_db)) -> User:
+def login(payload: LoginRequest, response: Response, db: DbSession) -> User:
     email = _normalize_email(payload.email)
     user = db.scalar(select(User).where(User.email == email))
 
     # Identical error, identical status, for "no such user", "wrong password"
     # and "disabled account" -- no field-level hint that narrows the guess.
-    if user is None or not user.is_enabled or not _verify_password(
-        payload.password, user.password_hash
+    if (
+        user is None
+        or not user.is_enabled
+        or not _verify_password(payload.password, user.password_hash)
     ):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=GENERIC_LOGIN_ERROR)
 
@@ -104,7 +116,7 @@ def login(payload: LoginRequest, response: Response, db: DBSession = Depends(get
 
 
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def signup(payload: SignupRequest, response: Response, db: DBSession = Depends(get_db)) -> User:
+def signup(payload: SignupRequest, response: Response, db: DbSession) -> User:
     email = _normalize_email(payload.email)
     if not email or not payload.password:
         raise HTTPException(
@@ -114,7 +126,8 @@ def signup(payload: SignupRequest, response: Response, db: DBSession = Depends(g
     existing = db.scalar(select(User).where(User.email == email))
     if existing is not None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="An account already exists for this email"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account already exists for this email",
         )
 
     user_count = db.scalar(select(func.count()).select_from(User)) or 0
@@ -138,8 +151,8 @@ def signup(payload: SignupRequest, response: Response, db: DBSession = Depends(g
 @router.post("/logout", response_model=MessageResponse)
 def logout(
     response: Response,
-    session_id: str | None = Cookie(default=None, alias="session_id"),
-    db: DBSession = Depends(get_db),
+    db: DbSession,
+    session_id: SessionCookie = None,
 ) -> MessageResponse:
     if session_id is not None:
         session_row = db.get(SessionModel, session_id)
@@ -152,5 +165,5 @@ def logout(
 
 
 @router.get("/me", response_model=UserOut)
-def me(current_user: User = Depends(get_current_user)) -> User:
+def me(current_user: CurrentUser) -> User:
     return current_user
