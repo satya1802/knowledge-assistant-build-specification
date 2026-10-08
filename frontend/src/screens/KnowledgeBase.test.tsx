@@ -338,6 +338,36 @@ describe("KnowledgeBase screen", () => {
     expect(document.getElementById("kb-file-input")).not.toBeInTheDocument();
     expect(screen.queryByText(/upload documents/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/delete employee-handbook/i)).not.toBeInTheDocument();
+    // AC-050: downloading is not an admin-only action -- any signed-in user,
+    // including an employee, still gets the download control for the row.
+    expect(
+      screen.getByRole("link", { name: /download original file employee-handbook-2026\.pdf/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("AC-050: the download control links straight to that document's original file on the server", async () => {
+    mockApiFetch.mockResolvedValueOnce({ items: [DOC_READY, DOC_PROCESSING] });
+    renderScreen();
+    await waitFor(() => expect(screen.getByText(DOC_READY.filename)).toBeInTheDocument());
+
+    const readyLink = screen.getByRole("link", {
+      name: new RegExp(`download original file ${DOC_READY.filename}`, "i"),
+    });
+    expect(readyLink).toHaveAttribute(
+      "href",
+      expect.stringContaining(`/documents/${DOC_READY.id}/download`),
+    );
+
+    // Each row's link names its own document -- the processing row's link
+    // must not point at the ready row's file, or vice versa.
+    const processingLink = screen.getByRole("link", {
+      name: new RegExp(`download original file ${DOC_PROCESSING.filename}`, "i"),
+    });
+    expect(processingLink).toHaveAttribute(
+      "href",
+      expect.stringContaining(`/documents/${DOC_PROCESSING.id}/download`),
+    );
+    expect(processingLink.getAttribute("href")).not.toBe(readyLink.getAttribute("href"));
   });
 
   it("AC-046: lists name, type, size, upload date, status and chunk count from the API", async () => {

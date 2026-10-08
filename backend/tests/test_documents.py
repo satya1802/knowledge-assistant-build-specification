@@ -177,3 +177,30 @@ def test_admin_can_delete_a_document() -> None:
     assert response.status_code == 204
     follow_up = client.get(f"/documents/{document_id}/download")
     assert follow_up.status_code == 404
+
+
+def test_download_without_a_session_cookie_is_refused_and_returns_no_file_content() -> None:
+    """AC-051: an unauthenticated visitor requesting a real document's
+    download URL is refused, and the file's bytes never leave the server."""
+    admin = admin_client()
+    secret = b"%PDF-1.4 confidential board minutes"
+    files = {"file": ("board-minutes.pdf", io.BytesIO(secret), "application/pdf")}
+    created = admin.post("/documents", files=files)
+    document_id = created.json()["id"]
+
+    anonymous = TestClient(app)
+    response = anonymous.get(f"/documents/{document_id}/download")
+
+    assert response.status_code == 401
+    assert secret not in response.content
+
+
+def test_download_without_a_session_cookie_is_refused_before_any_document_lookup() -> None:
+    """AC-051: authentication is enforced before the id is even looked up, so
+    an unauthenticated caller gets the same 401 for an id that does not
+    exist as for one that does -- never a 404 that would confirm existence."""
+    anonymous = TestClient(app)
+
+    response = anonymous.get("/documents/no-such-document-id/download")
+
+    assert response.status_code == 401
