@@ -34,9 +34,7 @@ def test_get_vector_store_selects_sqlite_by_default(monkeypatch) -> None:
 
 def test_get_vector_store_selects_pgvector_for_postgres_url(monkeypatch) -> None:
     reset_vector_store()
-    monkeypatch.setattr(
-        "app.services.vector_store.DATABASE_URL", "postgresql://u:p@h/db"
-    )
+    monkeypatch.setattr("app.services.vector_store.DATABASE_URL", "postgresql://u:p@h/db")
 
     store = get_vector_store()
 
