@@ -128,7 +128,9 @@ export async function postEventStream(
         break;
       case "no_match":
         handlers.onNoMatch?.(
-          typeof data === "string" ? data : ((data as { message?: string } | undefined)?.message ?? ""),
+          typeof data === "string"
+            ? data
+            : ((data as { message?: string } | undefined)?.message ?? ""),
         );
         break;
       case "ping":
