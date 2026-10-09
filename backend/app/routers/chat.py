@@ -28,8 +28,10 @@ from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 
 from app.database import SessionLocal
+from app.models import DocumentChunk
 from app.routers.auth import CurrentUser
 from app.schemas import ChatAskRequest
 from app.services.chat_store import store
@@ -57,7 +59,15 @@ _PROVIDER_ERROR_MESSAGE = (
     "The AI service is temporarily unavailable. Please try again, or contact "
     "an administrator if the problem continues."
 )
-_NO_MATCH_MESSAGE = "No relevant documents were found for this question."
+# AC-063: below-threshold path. AC-065: empty-knowledge-base path (same
+# `no_match` event, a different, more actionable message) -- both state
+# plainly that no relevant documents were found; neither is ever paired
+# with a token/sources event or a general-knowledge answer (AC-064).
+_NO_MATCH_MESSAGE = "No relevant documents were found in the knowledge base for this question."
+_EMPTY_KNOWLEDGE_BASE_MESSAGE = (
+    "No relevant documents were found in the knowledge base. Try asking an "
+    "administrator to upload relevant documents."
+)
 
 
 def _sse(event: str, data: dict) -> str:
@@ -101,8 +111,15 @@ async def ask(
 
     async def event_source() -> AsyncIterator[str]:
         db = SessionLocal()
+        kb_empty = False
         try:
             chunks = retrieve(db, question)
+            if not chunks:
+                # AC-065: an empty knowledge base (no chunk at all, ever) gets
+                # its own message, distinct from "nothing scored above
+                # threshold" -- determined here, while `db` is still open,
+                # rather than reopening a session after the `finally` below.
+                kb_empty = db.scalar(select(DocumentChunk.id).limit(1)) is None
         except QuotaExhaustedError:
             message_id = store.record(
                 conversation_id=payload.conversation_id,
@@ -134,7 +151,8 @@ async def ask(
                 answer="",
                 partial=False,
             )
-            yield _sse("no_match", {"message": _NO_MATCH_MESSAGE})
+            message = _EMPTY_KNOWLEDGE_BASE_MESSAGE if kb_empty else _NO_MATCH_MESSAGE
+            yield _sse("no_match", {"message": message})
             yield _sse("done", {"message_id": message_id, "partial": False})
             return
 
@@ -143,8 +161,11 @@ async def ask(
             {
                 "sources": [
                     {
+                        "chunk_id": chunk.chunk_id,
+                        "document_id": chunk.document_id,
                         "filename": chunk.filename,
                         "page": chunk.page_number,
+                        "text": chunk.text,
                         "score": chunk.score,
                     }
                     for chunk in chunks

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -160,6 +160,93 @@ describe("Chat screen", () => {
     expect(screen.queryByText(/upgrade/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/billing/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/\bpay\b/i)).not.toBeInTheDocument();
+  });
+
+  it("AC-059/AC-060/AC-061: renders numbered chips, opens the panel with chunk text/doc/page and a real download link, and Escape returns focus to the chip", async () => {
+    const user = userEvent.setup();
+    const ctrl = createControllableStream();
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        body: ctrl.stream,
+        clone: () => ({ json: async () => ({}) }),
+      } as Response),
+    );
+
+    renderScreen();
+    await askQuestion(user, "What is the leave policy?");
+
+    ctrl.push(sseBlock("token", { token: "Answer text." }));
+    ctrl.push(
+      sseBlock("sources", {
+        sources: [
+          {
+            id: "doc-1",
+            filename: "Handbook.pdf",
+            page: "Page 14",
+            file_type: "PDF",
+            score: 0.84,
+            text: "Parental leave details.",
+          },
+          {
+            id: "doc-2",
+            filename: "Scanned-Policy.pdf",
+            page: "Page 3",
+            file_type: "PDF",
+            score: 0.7,
+            text: "OCR-extracted clause text.",
+          },
+        ],
+      }),
+    );
+    ctrl.push(sseBlock("done", {}));
+    ctrl.close();
+
+    const chip1 = await screen.findByRole("button", { name: /source 1:.*handbook\.pdf/i });
+    const chip2 = screen.getByRole("button", { name: /source 2:.*scanned-policy\.pdf/i });
+    expect(chip1).toBeInTheDocument();
+    expect(chip2).toBeInTheDocument();
+
+    await user.click(chip2);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("OCR-extracted clause text.")).toBeInTheDocument();
+    expect(within(dialog).getByText("Scanned-Policy.pdf")).toBeInTheDocument();
+    expect(within(dialog).getByText("Page 3")).toBeInTheDocument();
+
+    const downloadLink = within(dialog).getByRole("link", { name: /download original/i });
+    expect(downloadLink).toHaveAttribute("href", expect.stringContaining("/documents/doc-2/download"));
+    expect(downloadLink).toHaveAttribute("download");
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(chip2).toHaveFocus();
+  });
+
+  it("AC-063/AC-064: no_match shows the backend's message, no source chips, and no general-knowledge answer", async () => {
+    const user = userEvent.setup();
+    const ctrl = createControllableStream();
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        body: ctrl.stream,
+        clone: () => ({ json: async () => ({}) }),
+      } as Response),
+    );
+
+    renderScreen();
+    await askQuestion(user, "What is the meaning of life?");
+
+    const noMatchMessage = "No relevant documents were found for this question.";
+    ctrl.push(sseBlock("no_match", { message: noMatchMessage }));
+    ctrl.push(sseBlock("done", {}));
+    ctrl.close();
+
+    await waitFor(() => expect(screen.getByText(noMatchMessage)).toBeInTheDocument());
+    expect(screen.queryByText(/sources \(/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /source 1:/i })).not.toBeInTheDocument();
   });
 
   it("starts with no seeded conversations, chunks or answers on screen", () => {

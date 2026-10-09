@@ -5,7 +5,7 @@ import * as UI from "@/lib/ui";
 import { Icons } from "@/lib/icons";
 import { brand } from "@/lib/brand";
 import { useNavigate } from "@/lib/navigate";
-import { postEventStream, ApiError } from "@/lib/api";
+import { postEventStream, ApiError, API_BASE_URL } from "@/lib/api";
 
 const { Table } = UI;
 const {
@@ -64,7 +64,6 @@ export default function Screen() {
   const [draft, setDraft] = React.useState("");
   const [streamingId, setStreamingId] = React.useState(null);
   const [panel, setPanel] = React.useState(null);
-  const [downloadNote, setDownloadNote] = React.useState("");
   const [copiedId, setCopiedId] = React.useState(null);
   const [speakingId, setSpeakingId] = React.useState(null);
   const [confirmId, setConfirmId] = React.useState(null);
@@ -98,12 +97,6 @@ export default function Screen() {
     const t = setTimeout(() => setCopiedId(null), 2200);
     return () => clearTimeout(t);
   }, [copiedId]);
-
-  React.useEffect(() => {
-    if (!downloadNote) return undefined;
-    const t = setTimeout(() => setDownloadNote(""), 3500);
-    return () => clearTimeout(t);
-  }, [downloadNote]);
 
   /* ---------- source panel: focus + escape ---------- */
   React.useEffect(() => {
@@ -176,6 +169,25 @@ export default function Screen() {
     );
   }
 
+  function applyNoMatch(convId, msgId, message) {
+    const text =
+      typeof message === "string" && message.trim()
+        ? message
+        : "No relevant documents were found for this question.";
+    setConversations((cs) =>
+      cs.map((c) =>
+        c.id === convId
+          ? {
+              ...c,
+              messages: c.messages.map((m) =>
+                m.id === msgId ? { ...m, state: "none", content: text, sources: [] } : m,
+              ),
+            }
+          : c,
+      ),
+    );
+  }
+
   function applyError(convId, msgId, code, message) {
     const text =
       typeof message === "string" && message.trim()
@@ -228,6 +240,7 @@ export default function Screen() {
         {
           onToken: (token) => appendToken(convId, msgId, token),
           onSources: (sources) => applySources(convId, msgId, sources),
+          onNoMatch: (message) => applyNoMatch(convId, msgId, message),
           onPing: () => {},
           onError: (err) => applyError(convId, msgId, err && err.code, err && err.message),
           onDone: () => finalizeDone(convId, msgId),
@@ -1006,12 +1019,6 @@ export default function Screen() {
         </section>
       </div>
 
-      {downloadNote && (
-        <p role="status" className="mt-4 text-sm font-medium" style={{ color: green }}>
-          {downloadNote}
-        </p>
-      )}
-
       {/* ---------------- Source side panel ---------------- */}
       {panelChunk && (
         <div className="fixed inset-0 z-40">
@@ -1088,13 +1095,10 @@ export default function Screen() {
             </div>
 
             <div className="flex flex-wrap gap-3 border-t border-slate-200 px-5 py-4">
-              <button
-                type="button"
-                onClick={() =>
-                  setDownloadNote(
-                    "Download of " + (panelChunk.filename || "this source") + " has started.",
-                  )
-                }
+              <a
+                href={API_BASE_URL + "/documents/" + (panelChunk.id || "") + "/download"}
+                download
+                aria-label={"Download original: " + (panelChunk.filename || "this source")}
                 className={
                   "inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 " +
                   focusRing
@@ -1103,7 +1107,7 @@ export default function Screen() {
               >
                 <Download className="h-4 w-4" aria-hidden="true" />
                 Download original
-              </button>
+              </a>
               <button
                 type="button"
                 onClick={() => {

@@ -65,6 +65,10 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 export type ChatStreamHandlers = {
   onToken?: (token: string) => void;
   onSources?: (sources: unknown) => void;
+  /** Dispatched for the `no_match` SSE event: no chunk cleared the
+   * retrieval threshold, so the backend never asked the model to answer.
+   * `message` is the backend's own no-match copy, verbatim. */
+  onNoMatch?: (message: string) => void;
   onPing?: () => void;
   onError?: (error: { code?: string; message?: string }) => void;
   onDone?: () => void;
@@ -121,6 +125,11 @@ export async function postEventStream(
         break;
       case "sources":
         handlers.onSources?.((data as { sources?: unknown } | undefined)?.sources ?? data);
+        break;
+      case "no_match":
+        handlers.onNoMatch?.(
+          typeof data === "string" ? data : ((data as { message?: string } | undefined)?.message ?? ""),
+        );
         break;
       case "ping":
         handlers.onPing?.();
