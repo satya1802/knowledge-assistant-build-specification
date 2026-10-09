@@ -60,10 +60,7 @@ function AppShell() {
           borderColor: "var(--brand-border)",
         }}
       >
-        <p
-          className="text-sm font-semibold"
-          style={{ fontFamily: "var(--brand-font-heading)" }}
-        >
+        <p className="text-sm font-semibold" style={{ fontFamily: "var(--brand-font-heading)" }}>
           {"Knowledge Assistant"}
         </p>
         <button

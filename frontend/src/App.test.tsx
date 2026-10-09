@@ -26,9 +26,10 @@ describe("App", () => {
 
     fireEvent.click(toggle);
 
-    expect(
-      screen.getByRole("button", { name: "Close navigation menu" }),
-    ).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Close navigation menu" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   });
 
   it("AC-086: Escape closes the open mobile nav and returns focus to the toggle", () => {
