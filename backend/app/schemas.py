@@ -4,7 +4,7 @@ One pair per entity in the approved data model, plus the placeholder every
 generated route returns until it has been implemented.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, field_serializer, field_validator
@@ -18,10 +18,11 @@ def _utc_iso(value: datetime) -> str:
     formatting, rather than ever being treated as local time.
     """
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(tzinfo=UTC)
     else:
-        value = value.astimezone(timezone.utc)
+        value = value.astimezone(UTC)
     return value.isoformat().replace("+00:00", "Z")
+
 
 # Plain `str` rather than `pydantic.EmailStr`: the latter needs the
 # `email-validator` package, which is not an approved new dependency for this
