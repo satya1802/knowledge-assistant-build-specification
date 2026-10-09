@@ -11,7 +11,6 @@ and a no-op `sleep`.
 
 import time
 from collections.abc import Callable
-from typing import TypeVar
 
 from app.config import settings
 from app.services.llm.base import LLMProvider, RateLimitError
@@ -28,8 +27,6 @@ BATCH_SIZE = 100
 # (AC-096) rather than each defining its own policy.
 MAX_RETRIES = settings.LLM_MAX_RETRIES
 BACKOFF_BASE_SECONDS = settings.LLM_RETRY_BACKOFF_BASE_SECONDS
-
-_T = TypeVar("_T")
 
 
 def embed_chunks(
@@ -66,7 +63,7 @@ def generate_with_retry(
     return _call_with_retry(lambda: provider.generate(prompt), sleep)
 
 
-def _call_with_retry(
+def _call_with_retry[_T](
     call: Callable[[], _T],
     sleep: Callable[[float], None],
 ) -> _T:

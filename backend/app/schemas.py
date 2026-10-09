@@ -111,6 +111,20 @@ class DocumentOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ChatAskRequest(BaseModel):
+    """POST /chat/ask body.
+
+    `extra="forbid"` is the enforcement mechanism for AC-056: a client that
+    sends `k` or `threshold` (or any other unknown field) gets a 422, never
+    a silent override of the server-side retrieval settings.
+    """
+
+    question: str
+    conversation_id: str | None = None
+
+    model_config = {"extra": "forbid"}
+
+
 class StubResponse(BaseModel):
     """What a generated route returns until someone implements it.
 

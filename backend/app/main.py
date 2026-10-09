@@ -14,7 +14,7 @@ from sqlalchemy import inspect, text
 
 from app import models  # noqa: F401 -- imported so the tables register before create_all
 from app.database import Base, engine
-from app.routers import account, auth, documents, users
+from app.routers import account, auth, chat, documents, users
 from app.services.vector_store import is_pgvector_backend
 
 _DESCRIPTION = (
@@ -84,6 +84,7 @@ app.include_router(auth.router)
 app.include_router(account.router)
 app.include_router(users.router)
 app.include_router(documents.router)
+app.include_router(chat.router)
 
 
 @app.get("/health")
