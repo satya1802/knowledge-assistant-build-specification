@@ -185,8 +185,8 @@ export async function postEventStream(
         break;
       case "done":
         handlers.onDone?.(
-          (data as { message_id?: string; conversation_id?: string; partial?: boolean } | undefined) ??
-            {},
+          (data as
+            { message_id?: string; conversation_id?: string; partial?: boolean } | undefined) ?? {},
         );
         break;
       default:
