@@ -59,6 +59,28 @@ wires end-to-end:
   `GEMINI_ANSWER_MODEL` -- see `.env.example`; set `GEMINI_OFFLINE=1` to run
   fully offline against the deterministic local stub provider.
 
+## Deployment model (single-tenant)
+
+This service is a single-tenant deployment: one instance, one database,
+serving one organisation. To deploy it:
+
+1. Copy `backend/.env.example` to `backend/.env`.
+2. Set the variables documented there -- at minimum `GEMINI_API_KEY` (or
+   `GEMINI_OFFLINE=1`), and `DATABASE_URL` if not using the default SQLite
+   file.
+3. Run the app (`make dev` locally, or `uvicorn app.main:app` /
+   `backend/Dockerfile` in a real environment).
+
+No Celery, Redis, message broker or SMTP service is required anywhere in this
+stack: document ingestion runs in-process via FastAPI `BackgroundTasks`
+(`app/routers/documents.py`), and there is no outbound email. The only
+external dependency is the Gemini API, and that is optional in offline mode.
+
+Document originals (the files uploaded via `POST /documents`) persist on disk
+at `DOCUMENT_STORAGE_DIR` (`.env.example` default: `./storage/documents`) and
+survive a process restart. In a container deployment, mount a persistent
+volume at that path -- see `backend/Dockerfile`.
+
 ## Optional: Postgres + pgvector instead of SQLite
 
 ```

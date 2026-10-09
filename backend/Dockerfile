@@ -8,6 +8,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
+# Document originals (DOCUMENT_STORAGE_DIR, default ./storage/documents)
+# persist here and must survive a container restart/replacement: mount a
+# persistent volume at this path in any real deployment. No queue, broker,
+# cache or mail service is part of this image or stack.
+VOLUME ["/app/storage/documents"]
+
 # Run as an unprivileged user. The service never needs root, and a container that
 # drops it limits what a compromise of the app can do to the host.
 RUN useradd --create-home --uid 10001 appuser

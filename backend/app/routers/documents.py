@@ -20,6 +20,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Up
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models import Document
 from app.routers.auth import CurrentUser, DbSession
@@ -53,8 +54,9 @@ _ACCEPTED_FORMATS_MESSAGE = "Accepted formats: PDF, DOCX, TXT, MD"
 _GENERIC_CONTENT_TYPES = {"", "application/octet-stream", "binary/octet-stream"}
 
 # AC-025. Enforced by counting bytes as they stream to disk, never by
-# buffering the whole upload in memory first.
-MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+# buffering the whole upload in memory first. The limit itself is
+# environment-driven: app.config.settings.MAX_UPLOAD_BYTES/MAX_UPLOAD_MB is the
+# single source of truth, read fresh below rather than cached at import time.
 _CHUNK_SIZE = 1024 * 1024
 
 # Module-level singleton: ruff's B008 flags a `File(...)` call sitting
@@ -165,7 +167,7 @@ async def upload_document(
                 if not chunk:
                     break
                 size_bytes += len(chunk)
-                if size_bytes > MAX_UPLOAD_BYTES:
+                if size_bytes > settings.MAX_UPLOAD_BYTES:
                     exceeded = True
                     break
                 out.write(chunk)
@@ -176,7 +178,7 @@ async def upload_document(
         dest_path.unlink(missing_ok=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File exceeds the 25 MB size limit",
+            detail=f"File exceeds the {settings.MAX_UPLOAD_MB} MB size limit",
         )
 
     content_type = (

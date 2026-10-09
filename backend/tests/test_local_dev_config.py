@@ -35,3 +35,12 @@ def test_default_cors_allows_the_127_0_0_1_vite_dev_server_origin() -> None:
     )
 
     assert response.headers.get("access-control-allow-origin") == "http://127.0.0.1:5173"
+
+
+def test_settings_is_the_single_source_of_truth_for_deployment_knobs() -> None:
+    """KNOW9BAE95-42-1: upload limit, database URL and CORS origins are all
+    read from app.config.settings, not scattered module-level constants."""
+    assert settings.MAX_UPLOAD_MB == 25
+    assert settings.MAX_UPLOAD_BYTES == 25 * 1024 * 1024
+    assert settings.DATABASE_URL == "sqlite:///./app.db"
+    assert settings.ALLOWED_ORIGINS == ""

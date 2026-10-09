@@ -86,8 +86,28 @@ class Settings:
     # Filesystem directory the original bytes of every uploaded document are
     # written to (KNOW9BAE95-18-1). Relative paths are resolved against the
     # process's working directory (normally `backend/`). Created on first use
-    # if it does not already exist.
+    # if it does not already exist. Persists across restarts: in a container
+    # deployment this must be a mounted volume, not ephemeral container storage.
     DOCUMENT_STORAGE_DIR: str = os.getenv("DOCUMENT_STORAGE_DIR", "./storage/documents")
+
+    # Maximum accepted size of a single document upload (AC-025), in bytes.
+    # Configured in MB via MAX_UPLOAD_MB for a human-friendly env value;
+    # defaults to the 25 MB limit the product requires.
+    MAX_UPLOAD_MB: int = int(os.getenv("MAX_UPLOAD_MB", "25"))
+    MAX_UPLOAD_BYTES: int = MAX_UPLOAD_MB * 1024 * 1024
+
+    # Single source of truth for the database connection (KNOW9BAE95-42-1).
+    # Defaults to a local SQLite file so a fresh clone runs with nothing but
+    # `pip install -r requirements.txt`; point it at Postgres+pgvector for a
+    # real deployment -- app.database and app.services.vector_store branch on
+    # the URL scheme alone, no other code change is needed.
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./app.db")
+
+    # Comma-separated browser origins the API accepts requests from (CORS).
+    # Empty by default, which app.main falls back from to the Vite dev server
+    # origins (http://localhost:5173, http://127.0.0.1:5173) so local
+    # development keeps working unchanged.
+    ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "")
 
     def __init__(self) -> None:
         # Fail fast: a service that starts without a key, then falls over on
