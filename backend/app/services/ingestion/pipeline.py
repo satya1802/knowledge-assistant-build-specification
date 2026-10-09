@@ -88,8 +88,7 @@ def _ocr_unavailable_note(pages: list) -> str | None:  # noqa: ANN001 -- list[Ex
     page numbers that were skipped because local OCR was unavailable
     (AC-037), or `None` when every page was read normally."""
     skipped_pages = sorted(
-        {page.page_number for page in pages if getattr(page, "ocr_unavailable", False)}
-        - {None}
+        {page.page_number for page in pages if getattr(page, "ocr_unavailable", False)} - {None}
     )
     if not skipped_pages:
         return None

@@ -124,9 +124,8 @@ def test_run_ingestion_mixed_text_and_scanned_pages_ingests_text_pages_normally(
     """AC-037: a document with both readable and scanned pages still ingests
     its text-bearing pages when OCR is unavailable -- only the scanned page
     is skipped, with a note, not the whole document."""
-    from app.services.ingestion.extract import ExtractedPage
-
     import app.services.ingestion.pipeline as pipeline_module
+    from app.services.ingestion.extract import ExtractedPage
 
     monkeypatch.setattr(
         pipeline_module,

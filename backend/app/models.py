@@ -15,7 +15,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.services.vector_store import EmbeddingType
-from app.services.vector_store import EmbeddingType
 
 __all__ = ["Base", "User", "Session", "LoginLockout", "Document", "DocumentChunk"]
 

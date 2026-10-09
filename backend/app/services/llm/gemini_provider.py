@@ -20,7 +20,13 @@ from app.services.security import redact
 # failure in the SDK's own exception message, as distinct from any other
 # provider error (AC-041). Deliberately conservative: an error that does not
 # clearly say "rate limit" is treated as a non-retryable failure.
-_RATE_LIMIT_MARKERS = ("rate limit", "429", "resource_exhausted", "quota exceeded", "too many requests")
+_RATE_LIMIT_MARKERS = (
+    "rate limit",
+    "429",
+    "resource_exhausted",
+    "quota exceeded",
+    "too many requests",
+)
 
 
 def _is_rate_limit_message(message: str) -> bool:
