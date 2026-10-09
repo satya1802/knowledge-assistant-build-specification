@@ -93,6 +93,18 @@ class UserCreateRequest(BaseModel):
     password: str
     role: Literal["admin", "employee"] = "employee"
 
+    @field_validator("password")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        # The route itself already rejects an empty string (`not payload.password`),
+        # but a whitespace-only value would slip past that falsy check and bcrypt
+        # would happily hash it -- an effectively passwordless account. Caught
+        # here instead, schema-side, so both admin password endpoints share the
+        # same guarantee.
+        if not value.strip():
+            raise ValueError("Password must not be blank")
+        return value
+
 
 class UserUpdateRequest(BaseModel):
     """PATCH /users/{id} body (admin-only). Every field optional; only the
@@ -101,6 +113,17 @@ class UserUpdateRequest(BaseModel):
     role: Literal["admin", "employee"] | None = None
     is_enabled: bool | None = None
     password: str | None = None
+
+    @field_validator("password")
+    @classmethod
+    def _not_blank(cls, value: str | None) -> str | None:
+        # `update_user` only checks `payload.password is not None` before
+        # hashing it, so an explicit "" here would previously overwrite the
+        # account's password with a blank one -- a genuine lockout/security
+        # bug, not just a validation nicety.
+        if value is not None and not value.strip():
+            raise ValueError("Password must not be blank")
+        return value
 
 
 class MessageResponse(BaseModel):

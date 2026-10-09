@@ -211,13 +211,16 @@ async def ask(
 
         if not chunks:
             # AC-055: never an unsourced answer -- an explicit event instead.
+            # The no-match text is persisted as the assistant's answer (not an
+            # empty string) so reopening this conversation later shows the same
+            # thing the user was told at the time, rather than a blank reply.
+            message = _EMPTY_KNOWLEDGE_BASE_MESSAGE if kb_empty else _NO_MATCH_MESSAGE
             message_id = _persist_exchange(
                 conversation_id=conversation_id,
                 question=question,
-                answer="",
+                answer=message,
                 sources=[],
             )
-            message = _EMPTY_KNOWLEDGE_BASE_MESSAGE if kb_empty else _NO_MATCH_MESSAGE
             yield _sse("no_match", {"message": message})
             yield _sse(
                 "done",

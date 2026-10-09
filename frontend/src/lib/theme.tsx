@@ -59,7 +59,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // simply fails quietly and leaves the current choice alone.
   React.useEffect(() => {
     let cancelled = false;
-    apiFetch<{ theme?: unknown }>("/auth/me")
+    // `skipUnauthorizedHandler`: this runs on every route, including the
+    // public docs page, which never requires sign-in. Without it, an
+    // anonymous visitor there triggers the app-wide 401 handler and gets
+    // force-navigated to Sign in just for this background theme check.
+    apiFetch<{ theme?: unknown }>("/auth/me", { skipUnauthorizedHandler: true })
       .then((me) => {
         if (cancelled) return;
         if (isThemeChoice(me?.theme)) setThemeState(me.theme);

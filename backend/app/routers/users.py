@@ -61,6 +61,19 @@ def update_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+    # The frontend already disables "make/remove admin" and "disable account"
+    # for the signed-in admin's own row (Users.tsx: "You cannot change your
+    # own role or disable your own account") -- that is a UI nicety, not
+    # enforcement. Without this check here, a direct API call could demote or
+    # disable the only signed-in admin, including the last admin account.
+    # Resetting one's own password is still allowed (the UI leaves that
+    # enabled too).
+    if user.id == admin.id and (payload.role is not None or payload.is_enabled is not None):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot change your own role or enabled status",
+        )
+
     if payload.role is not None:
         user.role = payload.role
 

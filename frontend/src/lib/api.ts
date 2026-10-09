@@ -35,17 +35,29 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   unauthorizedHandler = handler;
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export type ApiFetchInit = RequestInit & {
+  /** Opt out of the global 401 handler (which clears auth state and sends the
+   * browser to Sign in) for this one call. For a request that is merely
+   * probing whether a session happens to be live -- e.g. restoring a saved
+   * theme -- a 401 is an entirely normal, expected outcome on a page that
+   * never required sign-in in the first place (the public docs page), and
+   * must not force-navigate a visitor away from it. The call still throws
+   * ApiError as usual; this only silences the side effect. */
+  skipUnauthorizedHandler?: boolean;
+};
+
+export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
+  const { skipUnauthorizedHandler, ...fetchInit } = init ?? {};
   // Session-cookie auth: every call sends credentials so the HTTP-only cookie the
   // backend sets on login round-trips on subsequent requests, including across
   // plain http on localhost in Safari and Chrome. Callers may override via init.
   const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: "include",
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    ...fetchInit,
+    headers: { "Content-Type": "application/json", ...(fetchInit.headers ?? {}) },
   });
   if (!response.ok) {
-    let detail = `${init?.method ?? "GET"} ${path} failed: ${response.status}`;
+    let detail = `${fetchInit.method ?? "GET"} ${path} failed: ${response.status}`;
     try {
       const body = await response.clone().json();
       if (body && typeof body.detail === "string" && body.detail.trim()) {
@@ -54,7 +66,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     } catch {
       // No JSON body (or not valid JSON) -- keep the generic message.
     }
-    if (response.status === 401 && unauthorizedHandler) {
+    if (response.status === 401 && unauthorizedHandler && !skipUnauthorizedHandler) {
       unauthorizedHandler();
     }
     throw new ApiError(detail, response.status);
