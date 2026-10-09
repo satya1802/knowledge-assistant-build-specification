@@ -508,7 +508,11 @@ describe("Chat screen", () => {
         return Promise.resolve(
           jsonResponse([
             { id: "conv-1", title: "Parental leave policy", updated_at: "2026-10-09T09:30:00Z" },
-            { id: "conv-2", title: "VPN access for contractors", updated_at: "2026-10-08T14:00:00Z" },
+            {
+              id: "conv-2",
+              title: "VPN access for contractors",
+              updated_at: "2026-10-08T14:00:00Z",
+            },
           ]),
         );
       });
@@ -521,7 +525,7 @@ describe("Chat screen", () => {
 
     it("selecting a conversation loads its full message list and citations from GET /conversations/{id}", async () => {
       const user = userEvent.setup();
-      fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      fetchMock.mockImplementation((url: string) => {
         if (url.endsWith("/conversations")) {
           return Promise.resolve(
             jsonResponse([
@@ -587,13 +591,10 @@ describe("Chat screen", () => {
       const search = screen.getByLabelText(/search your conversations/i);
       await user.type(search, "expenses");
 
-      await waitFor(() =>
-        expect(calls.some((u) => u.includes("q=expenses"))).toBe(true),
-        { timeout: 2000 },
-      );
-      await waitFor(() =>
-        expect(screen.getByText(/no conversations match/i)).toBeInTheDocument(),
-      );
+      await waitFor(() => expect(calls.some((u) => u.includes("q=expenses"))).toBe(true), {
+        timeout: 2000,
+      });
+      await waitFor(() => expect(screen.getByText(/no conversations match/i)).toBeInTheDocument());
       expect(screen.queryByText("Parental leave policy")).not.toBeInTheDocument();
     });
 
@@ -627,7 +628,9 @@ describe("Chat screen", () => {
       renderScreen();
       await screen.findByText("Parental leave policy");
 
-      await user.click(screen.getByRole("button", { name: /delete conversation: parental leave policy/i }));
+      await user.click(
+        screen.getByRole("button", { name: /delete conversation: parental leave policy/i }),
+      );
       await user.click(await screen.findByRole("button", { name: /^delete conversation$/i }));
 
       await waitFor(() =>
@@ -675,10 +678,14 @@ describe("Chat screen", () => {
       await user.click(item);
       await screen.findByText("You get 26 weeks of parental leave.");
 
-      await user.click(screen.getByRole("button", { name: /delete conversation: parental leave policy/i }));
+      await user.click(
+        screen.getByRole("button", { name: /delete conversation: parental leave policy/i }),
+      );
       await user.click(await screen.findByRole("button", { name: /^delete conversation$/i }));
 
-      expect(await screen.findByRole("heading", { name: /ask your first question/i })).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: /ask your first question/i }),
+      ).toBeInTheDocument();
       expect(screen.queryByText("You get 26 weeks of parental leave.")).not.toBeInTheDocument();
     });
 
@@ -727,7 +734,9 @@ describe("Chat screen", () => {
       renderScreen();
       await screen.findByText("Parental leave policy");
 
-      await user.click(screen.getByRole("button", { name: /delete conversation: parental leave policy/i }));
+      await user.click(
+        screen.getByRole("button", { name: /delete conversation: parental leave policy/i }),
+      );
       await user.click(await screen.findByRole("button", { name: /^delete conversation$/i }));
 
       expect(await screen.findByText("Could not delete conversation")).toBeInTheDocument();
@@ -735,7 +744,6 @@ describe("Chat screen", () => {
     });
 
     it("a 401 while loading conversations clears auth state via the unauthorized handler", async () => {
-      const setUnauthorizedHandler = vi.fn();
       // Exercise the real contract: a 401 response causes apiFetch to call
       // whatever handler auth.tsx registered. We assert on navigation
       // behaviour by rendering within a route the handler would redirect
