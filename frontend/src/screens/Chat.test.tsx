@@ -83,7 +83,14 @@ describe("Chat screen", () => {
     ctrl.push(
       sseBlock("sources", {
         sources: [
-          { id: "s1", filename: "Handbook.pdf", page: "Page 14", file_type: "PDF", score: 0.84, text: "Parental leave details." },
+          {
+            id: "s1",
+            filename: "Handbook.pdf",
+            page: "Page 14",
+            file_type: "PDF",
+            score: 0.84,
+            text: "Parental leave details.",
+          },
         ],
       }),
     );

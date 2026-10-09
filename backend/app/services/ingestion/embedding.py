@@ -63,10 +63,10 @@ def generate_with_retry(
     return _call_with_retry(lambda: provider.generate(prompt), sleep)
 
 
-def _call_with_retry[_T](
-    call: Callable[[], _T],
+def _call_with_retry[T](
+    call: Callable[[], T],
     sleep: Callable[[float], None],
-) -> _T:
+) -> T:
     """Shared retry primitive (AC-096): retries only `RateLimitError`, up to
     `MAX_RETRIES` times with exponential backoff; every other exception --
     including `QuotaExhaustedError` -- propagates on the first attempt.

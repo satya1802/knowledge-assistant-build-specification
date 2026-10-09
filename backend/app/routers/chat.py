@@ -52,9 +52,7 @@ _PING_INTERVAL_SECONDS = 4.0
 # the response body") and neither contains any word that could read as an
 # upsell -- "upgrade", "pay", "bill", "purchase", "subscri*" are all absent
 # on purpose, by construction, not by filtering.
-_QUOTA_EXHAUSTED_MESSAGE = (
-    "The AI service quota has been used up. Please contact an administrator."
-)
+_QUOTA_EXHAUSTED_MESSAGE = "The AI service quota has been used up. Please contact an administrator."
 _PROVIDER_ERROR_MESSAGE = (
     "The AI service is temporarily unavailable. Please try again, or contact "
     "an administrator if the problem continues."
@@ -99,9 +97,7 @@ async def ask(
     # retrieval or the provider at all.
     question = payload.question.strip()
     if not question:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Question is required"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Question is required")
 
     async def event_source() -> AsyncIterator[str]:
         db = SessionLocal()
