@@ -216,7 +216,10 @@ describe("Chat screen", () => {
     expect(within(dialog).getByText("Page 3")).toBeInTheDocument();
 
     const downloadLink = within(dialog).getByRole("link", { name: /download original/i });
-    expect(downloadLink).toHaveAttribute("href", expect.stringContaining("/documents/doc-2/download"));
+    expect(downloadLink).toHaveAttribute(
+      "href",
+      expect.stringContaining("/documents/doc-2/download"),
+    );
     expect(downloadLink).toHaveAttribute("download");
 
     await user.keyboard("{Escape}");
@@ -247,6 +250,197 @@ describe("Chat screen", () => {
     await waitFor(() => expect(screen.getByText(noMatchMessage)).toBeInTheDocument());
     expect(screen.queryByText(/sources \(/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /source 1:/i })).not.toBeInTheDocument();
+  });
+
+  it("AC-066: Copy places the completed answer on the clipboard and shows a short confirmation", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    const ctrl = createControllableStream();
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        body: ctrl.stream,
+        clone: () => ({ json: async () => ({}) }),
+      } as Response),
+    );
+
+    renderScreen();
+    await askQuestion(user, "What is the dress code?");
+
+    ctrl.push(sseBlock("token", { token: "Business casual is expected." }));
+    ctrl.push(sseBlock("done", {}));
+    ctrl.close();
+
+    await waitFor(() =>
+      expect(screen.getByText("Business casual is expected.")).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: /^copy$/i }));
+
+    expect(writeText).toHaveBeenCalledWith("Business casual is expected.");
+    expect(await screen.findByText(/answer copied to clipboard/i)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^copied$/i })).toBeInTheDocument();
+  });
+
+  it("AC-067: Read aloud speaks the answer with the browser's speech synthesis and the control toggles to stop playback", async () => {
+    const user = userEvent.setup();
+    const speak = vi.fn();
+    const cancel = vi.fn();
+    class FakeUtterance {
+      text: string;
+      onend: (() => void) | null = null;
+      constructor(text: string) {
+        this.text = text;
+      }
+    }
+    vi.stubGlobal("speechSynthesis", { speak, cancel });
+    vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
+
+    const ctrl = createControllableStream();
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        body: ctrl.stream,
+        clone: () => ({ json: async () => ({}) }),
+      } as Response),
+    );
+
+    renderScreen();
+    await askQuestion(user, "What is the dress code?");
+
+    ctrl.push(sseBlock("token", { token: "Business casual is expected." }));
+    ctrl.push(sseBlock("done", {}));
+    ctrl.close();
+
+    await waitFor(() =>
+      expect(screen.getByText("Business casual is expected.")).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: /^read aloud$/i }));
+
+    expect(speak).toHaveBeenCalledTimes(1);
+    expect(speak.mock.calls[0][0].text).toBe("Business casual is expected.");
+    expect(await screen.findByRole("button", { name: /^stop reading$/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^stop reading$/i }));
+
+    expect(cancel).toHaveBeenCalled();
+    expect(await screen.findByRole("button", { name: /^read aloud$/i })).toBeInTheDocument();
+  });
+
+  it("AC-068: Read aloud is disabled with an explanation when the browser has no speech synthesis support", async () => {
+    const user = userEvent.setup();
+    // No `vi.stubGlobal("speechSynthesis", ...)` here: jsdom has no Web Speech
+    // API by default, which is exactly the condition this criterion covers.
+    const ctrl = createControllableStream();
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        body: ctrl.stream,
+        clone: () => ({ json: async () => ({}) }),
+      } as Response),
+    );
+
+    renderScreen();
+    await askQuestion(user, "What is the dress code?");
+
+    ctrl.push(sseBlock("token", { token: "Business casual is expected." }));
+    ctrl.push(sseBlock("done", {}));
+    ctrl.close();
+
+    await waitFor(() =>
+      expect(screen.getByText("Business casual is expected.")).toBeInTheDocument(),
+    );
+
+    const readAloudButton = screen.getByRole("button", { name: /^read aloud$/i });
+    expect(readAloudButton).toBeDisabled();
+    expect(
+      screen.getByText(
+        /read aloud is unavailable because this browser has no speech synthesis support/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("AC-069: Regenerate re-runs retrieval and generation for the same question and the new streamed answer, with its own source chips, replaces the previous one", async () => {
+    const user = userEvent.setup();
+    const ctrl1 = createControllableStream();
+    const ctrl2 = createControllableStream();
+    const bodies: unknown[] = [];
+    fetchMock.mockImplementation((_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(init.body as string));
+      const stream = bodies.length === 1 ? ctrl1.stream : ctrl2.stream;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        body: stream,
+        clone: () => ({ json: async () => ({}) }),
+      } as Response);
+    });
+
+    renderScreen();
+    await askQuestion(user, "What is the leave policy?");
+
+    ctrl1.push(sseBlock("token", { token: "First answer." }));
+    ctrl1.push(
+      sseBlock("sources", {
+        sources: [
+          {
+            id: "doc-a",
+            filename: "DocA.pdf",
+            page: "Page 1",
+            file_type: "PDF",
+            score: 0.9,
+            text: "A",
+          },
+        ],
+      }),
+    );
+    ctrl1.push(sseBlock("done", {}));
+    ctrl1.close();
+
+    await waitFor(() => expect(screen.getByText("First answer.")).toBeInTheDocument());
+    expect(await screen.findByText("DocA.pdf")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^regenerate$/i }));
+
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).toEqual({ question: "What is the leave policy?" });
+    // The regenerated turn is in flight: the old answer and its chips are
+    // already gone from the one assistant message, replaced by the
+    // streaming indicator, not appended as a second turn.
+    expect(screen.queryByText("First answer.")).not.toBeInTheDocument();
+    expect(screen.getByText(/generating answer/i)).toBeInTheDocument();
+
+    ctrl2.push(sseBlock("token", { token: "Second answer." }));
+    ctrl2.push(
+      sseBlock("sources", {
+        sources: [
+          {
+            id: "doc-b",
+            filename: "DocB.pdf",
+            page: "Page 2",
+            file_type: "PDF",
+            score: 0.75,
+            text: "B",
+          },
+        ],
+      }),
+    );
+    ctrl2.push(sseBlock("done", {}));
+    ctrl2.close();
+
+    await waitFor(() => expect(screen.getByText("Second answer.")).toBeInTheDocument());
+    expect(await screen.findByText("DocB.pdf")).toBeInTheDocument();
+    expect(screen.queryByText("First answer.")).not.toBeInTheDocument();
+    expect(screen.queryByText("DocA.pdf")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Knowledge Assistant ·/i)).toHaveLength(1);
   });
 
   it("starts with no seeded conversations, chunks or answers on screen", () => {
