@@ -14,6 +14,8 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Uui
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.services.vector_store import EmbeddingType
+from app.services.vector_store import EmbeddingType
 
 __all__ = ["Base", "User", "Session", "LoginLockout", "Document", "DocumentChunk"]
 
@@ -137,5 +139,8 @@ class DocumentChunk(Base):
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    # 768-dimension Gemini embedding (KNOW9BAE95-22-1), persisted and read via
+    # app.services.vector_store.get_vector_store() -- never written directly.
+    embedding: Mapped[list[float] | None] = mapped_column(EmbeddingType(), nullable=True)
 
     document: Mapped["Document"] = relationship(back_populates="chunks")

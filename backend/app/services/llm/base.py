@@ -25,6 +25,16 @@ class LLMProviderError(Exception):
     """
 
 
+class RateLimitError(LLMProviderError):
+    """A Gemini call failed specifically because of rate limiting/quota.
+
+    Distinguished from the base `LLMProviderError` so a caller (see
+    `app.services.ingestion.embedding`) can retry this one failure mode with
+    backoff and treat every other provider failure as immediately terminal
+    (AC-041).
+    """
+
+
 class LLMProvider(Protocol):
     """embed(texts) -> 768-dim vectors; generate(prompt) -> answer text/stream."""
 

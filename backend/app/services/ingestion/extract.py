@@ -11,6 +11,7 @@ came from (AC-032): PDF pages extract one `ExtractedPage` per page, with its
 through untouched.
 """
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,6 +20,27 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
+
+logger = logging.getLogger(__name__)
+
+# Local OCR for scanned PDF pages (KNOW9BAE95-22-2): both the PDF renderer
+# and the Tesseract wrapper are optional imports. Neither Tesseract nor its
+# Python bindings are a hard dependency -- a deployment missing either must
+# still start and ingest text-bearing documents normally; only scanned pages
+# are affected (AC-037).
+try:
+    import pypdfium2 as _pdfium
+except ImportError:  # pragma: no cover - exercised by a deployment without the renderer
+    _pdfium = None
+
+try:
+    import pytesseract as _pytesseract
+except ImportError:  # pragma: no cover - exercised by a deployment without Tesseract
+    _pytesseract = None
+
+# A pypdf page whose extracted text is shorter than this (after stripping
+# whitespace) is treated as a scanned image rather than real text (AC-035).
+_OCR_MIN_CHARS = 20
 
 
 class ExtractionError(Exception):
@@ -37,10 +59,18 @@ class ExtractionError(Exception):
 @dataclass(frozen=True)
 class ExtractedPage:
     """One unit of extracted text. `page_number` is 1-based for PDFs, and
-    `None` for formats with no native page concept (DOCX, TXT, MD)."""
+    `None` for formats with no native page concept (DOCX, TXT, MD).
+
+    `ocr_unavailable` is set (text left empty) when a PDF page was detected
+    as a scanned image (AC-035) but could not be OCR'd because Tesseract
+    and/or the PDF renderer are not installed (AC-037) -- the pipeline
+    reads this flag to record a readable `Document.status_reason` note
+    without failing the whole document.
+    """
 
     page_number: int | None
     text: str
+    ocr_unavailable: bool = False
 
 
 def extract_document(path: Path, file_type: str) -> list[ExtractedPage]:
@@ -81,15 +111,62 @@ def _extract_pdf(path: Path) -> list[ExtractedPage]:
         except Exception as exc:  # noqa: BLE001
             raise ExtractionError("This PDF is password-protected and could not be read.") from exc
 
+    ocr_ready = _ocr_runtime_available()
+
     try:
         pages: list[ExtractedPage] = []
         for index, page in enumerate(reader.pages, start=1):
             text = page.extract_text() or ""
-            pages.append(ExtractedPage(page_number=index, text=text))
+            if len(text.strip()) >= _OCR_MIN_CHARS:
+                pages.append(ExtractedPage(page_number=index, text=text))
+                continue
+
+            # Almost no text: treat as a scanned page (AC-035).
+            if not ocr_ready:
+                pages.append(ExtractedPage(page_number=index, text="", ocr_unavailable=True))
+                continue
+
+            ocr_text = _ocr_page_text(path, index)
+            if ocr_text is None:
+                pages.append(ExtractedPage(page_number=index, text="", ocr_unavailable=True))
+            else:
+                pages.append(ExtractedPage(page_number=index, text=ocr_text))
     except Exception as exc:  # noqa: BLE001 -- unreadable page content
         raise ExtractionError("This PDF could not be read.") from exc
 
     return pages
+
+
+def _ocr_runtime_available() -> bool:
+    """Whether both the PDF renderer and a working Tesseract install are
+    present. Checked once per document rather than cached at import time, so
+    a deployment that installs Tesseract later does not need a restart."""
+    if _pdfium is None or _pytesseract is None:
+        return False
+    try:
+        _pytesseract.get_tesseract_version()
+    except Exception:  # noqa: BLE001 -- any probe failure means "not available"
+        return False
+    return True
+
+
+def _ocr_page_text(path: Path, page_number: int) -> str | None:
+    """Render `page_number` (1-based) of the PDF at `path` to an image and
+    recognise its text with Tesseract (English). Returns `None` on any
+    failure -- rendering or recognition errors degrade the page to "skipped",
+    never a crash or a raised traceback (AC-037)."""
+    try:
+        pdf = _pdfium.PdfDocument(str(path))
+        try:
+            page = pdf[page_number - 1]
+            bitmap = page.render(scale=2.0)
+            image = bitmap.to_pil()
+        finally:
+            pdf.close()
+        return _pytesseract.image_to_string(image, lang="eng")
+    except Exception:  # noqa: BLE001 -- OCR failure degrades to "skipped", not a crash
+        logger.warning("OCR failed for page %s of %s", page_number, path, exc_info=True)
+        return None
 
 
 def _iter_block_items(docx_document: DocxDocument) -> list[Paragraph | Table]:

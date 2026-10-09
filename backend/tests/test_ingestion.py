@@ -6,6 +6,7 @@ import pytest
 from docx import Document as DocxDocument
 from pypdf import PdfWriter
 
+from app.services.ingestion import extract as extract_module
 from app.services.ingestion.chunking import chunk_pages
 from app.services.ingestion.extract import ExtractedPage, ExtractionError, extract_document
 
@@ -105,6 +106,113 @@ def test_extract_pdf_corrupt_raises_extraction_error(tmp_path: Path) -> None:
     with pytest.raises(ExtractionError) as exc_info:
         extract_document(bad, "pdf")
     assert exc_info.value.reason
+
+
+@pytest.fixture
+def scanned_pdf_path(tmp_path: Path) -> Path:
+    """A valid PDF with one blank page: pypdf extracts no text from it at
+    all, exactly the "almost no text" case a scanned page produces (AC-035)."""
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    path = tmp_path / "scanned.pdf"
+    with open(path, "wb") as fh:
+        writer.write(fh)
+    return path
+
+
+def test_extract_pdf_scanned_page_uses_ocr_when_available(
+    monkeypatch: pytest.MonkeyPatch, scanned_pdf_path: Path
+) -> None:
+    monkeypatch.setattr(extract_module, "_ocr_runtime_available", lambda: True)
+    monkeypatch.setattr(
+        extract_module, "_ocr_page_text", lambda path, page_number: "Recognised scan text"
+    )
+
+    pages = extract_document(scanned_pdf_path, "pdf")
+
+    assert len(pages) == 1
+    assert pages[0].page_number == 1
+    assert pages[0].text == "Recognised scan text"
+    assert pages[0].ocr_unavailable is False
+
+    # The recognised text flows into the same chunking path as any other
+    # page (AC-035/AC-036): document id is attached by the pipeline, the
+    # 1-based page number already survives chunking here.
+    chunks = chunk_pages(pages)
+    assert len(chunks) == 1
+    assert chunks[0].page_number == 1
+    assert chunks[0].text == "Recognised scan text"
+
+
+def test_extract_pdf_scanned_page_skipped_when_ocr_unavailable(
+    monkeypatch: pytest.MonkeyPatch, scanned_pdf_path: Path
+) -> None:
+    monkeypatch.setattr(extract_module, "_ocr_runtime_available", lambda: False)
+
+    pages = extract_document(scanned_pdf_path, "pdf")
+
+    assert len(pages) == 1
+    assert pages[0].page_number == 1
+    assert pages[0].text == ""
+    assert pages[0].ocr_unavailable is True
+
+    # A fully-blank skipped page contributes no chunk, never an error.
+    assert chunk_pages(pages) == []
+
+
+def test_extract_pdf_ocr_failure_degrades_to_skipped_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch, scanned_pdf_path: Path
+) -> None:
+    """`_ocr_page_text` itself swallows render/recognition errors and
+    returns `None` (AC-037) -- the page is then marked skipped, never an
+    unhandled exception bubbling out of `extract_document`."""
+    monkeypatch.setattr(extract_module, "_ocr_runtime_available", lambda: True)
+    monkeypatch.setattr(extract_module, "_ocr_page_text", lambda path, page_number: None)
+
+    pages = extract_document(scanned_pdf_path, "pdf")
+
+    assert pages[0].ocr_unavailable is True
+    assert pages[0].text == ""
+
+
+def test_ocr_page_text_returns_none_when_renderer_raises(
+    monkeypatch: pytest.MonkeyPatch, scanned_pdf_path: Path
+) -> None:
+    """Exercises `_ocr_page_text`'s own error handling directly, with fake
+    renderer/OCR modules standing in for pypdfium2/pytesseract."""
+
+    class _ExplodingPdfium:
+        @staticmethod
+        def PdfDocument(path: str):  # noqa: N802 -- matches pypdfium2's API name
+            raise RuntimeError("renderer exploded")
+
+    monkeypatch.setattr(extract_module, "_pdfium", _ExplodingPdfium())
+
+    result = extract_module._ocr_page_text(scanned_pdf_path, 1)
+
+    assert result is None
+
+
+def test_ocr_runtime_available_false_when_modules_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(extract_module, "_pdfium", None)
+    monkeypatch.setattr(extract_module, "_pytesseract", None)
+    assert extract_module._ocr_runtime_available() is False
+
+
+def test_ocr_runtime_available_false_when_tesseract_binary_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FakePdfium:
+        pass
+
+    class _FakeTesseractMissing:
+        @staticmethod
+        def get_tesseract_version() -> str:
+            raise FileNotFoundError("tesseract is not installed")
+
+    monkeypatch.setattr(extract_module, "_pdfium", _FakePdfium())
+    monkeypatch.setattr(extract_module, "_pytesseract", _FakeTesseractMissing())
+    assert extract_module._ocr_runtime_available() is False
 
 
 def test_extract_pdf_password_protected_raises_extraction_error(tmp_path: Path) -> None:

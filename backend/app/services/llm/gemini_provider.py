@@ -13,8 +13,19 @@ from collections.abc import Iterator
 from google import genai
 
 from app.config import settings
-from app.services.llm.base import LLMProviderError
+from app.services.llm.base import LLMProviderError, RateLimitError
 from app.services.security import redact
+
+# Substrings (checked case-insensitively) that identify a rate-limit/quota
+# failure in the SDK's own exception message, as distinct from any other
+# provider error (AC-041). Deliberately conservative: an error that does not
+# clearly say "rate limit" is treated as a non-retryable failure.
+_RATE_LIMIT_MARKERS = ("rate limit", "429", "resource_exhausted", "quota exceeded", "too many requests")
+
+
+def _is_rate_limit_message(message: str) -> bool:
+    lowered = message.lower()
+    return any(marker in lowered for marker in _RATE_LIMIT_MARKERS)
 
 
 class GeminiProvider:
@@ -31,7 +42,10 @@ class GeminiProvider:
             )
             return [list(embedding.values) for embedding in result.embeddings]
         except Exception as exc:  # noqa: BLE001 -- re-raised redacted, below
-            raise LLMProviderError(redact(str(exc))) from None
+            message = redact(str(exc))
+            if _is_rate_limit_message(str(exc)):
+                raise RateLimitError(message) from None
+            raise LLMProviderError(message) from None
 
     def generate(self, prompt: str) -> str:
         try:

@@ -15,6 +15,7 @@ from sqlalchemy import inspect, text
 from app import models  # noqa: F401 -- imported so the tables register before create_all
 from app.database import Base, engine
 from app.routers import account, auth, documents, users
+from app.services.vector_store import is_pgvector_backend
 
 _DESCRIPTION = (
     "Knowledge Assistant: an enterprise RAG chatbot that answers employees' "
@@ -63,6 +64,21 @@ if "documents" in _inspector.get_table_names():
             _conn.execute(
                 text("ALTER TABLE documents ADD COLUMN chunk_count INTEGER NOT NULL DEFAULT 0")
             )
+
+# KNOW9BAE95-22-1: same additive pattern for document_chunks.embedding, a
+# 768-dimension Gemini embedding -- a pgvector `vector(768)` column on
+# Postgres, a plain JSON column on SQLite (app.services.vector_store.
+# EmbeddingType already encodes that distinction; only the raw ALTER TABLE
+# syntax differs here, since SQLAlchemy's reflection runs before the column
+# exists).
+if "document_chunks" in _inspector.get_table_names():
+    _chunk_columns = {c["name"] for c in _inspector.get_columns("document_chunks")}
+    if "embedding" not in _chunk_columns:
+        with engine.begin() as _conn:
+            if is_pgvector_backend():
+                _conn.execute(text("ALTER TABLE document_chunks ADD COLUMN embedding vector(768)"))
+            else:
+                _conn.execute(text("ALTER TABLE document_chunks ADD COLUMN embedding TEXT"))
 
 app.include_router(auth.router)
 app.include_router(account.router)

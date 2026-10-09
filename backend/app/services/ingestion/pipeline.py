@@ -52,6 +52,7 @@ def run_ingestion(document_id: str) -> None:
 def _ingest(db, document: Document) -> None:  # noqa: ANN001 -- Session, kept local to this module
     file_path = storage_dir() / document.stored_filename
     pages = extract_document(file_path, document.file_type)
+    ocr_note = _ocr_unavailable_note(pages)
     chunks = chunk_pages(pages)
 
     # Stub-acceptable embedding step (constraint): a real provider call that
@@ -71,11 +72,35 @@ def _ingest(db, document: Document) -> None:  # noqa: ANN001 -- Session, kept lo
             )
         )
 
+    # Ingestion always reaches a terminal status (AC-037): a document whose
+    # pages were all skipped for missing OCR still lands here as "ready",
+    # with zero chunks and a readable note, rather than "failed" or an
+    # unhandled exception.
     document.status = "ready"
-    document.status_reason = None
+    document.status_reason = ocr_note
     document.chunk_count = len(chunks)
     db.add(document)
     db.commit()
+
+
+def _ocr_unavailable_note(pages: list) -> str | None:  # noqa: ANN001 -- list[ExtractedPage]
+    """A short, human-readable note (never a traceback) listing the 1-based
+    page numbers that were skipped because local OCR was unavailable
+    (AC-037), or `None` when every page was read normally."""
+    skipped_pages = sorted(
+        {page.page_number for page in pages if getattr(page, "ocr_unavailable", False)}
+        - {None}
+    )
+    if not skipped_pages:
+        return None
+
+    pages_label = ", ".join(str(number) for number in skipped_pages)
+    plural = len(skipped_pages) > 1
+    return (
+        "OCR is not available in this environment (Tesseract was not found), so "
+        f"scanned page{'s' if plural else ''} {pages_label} could not be read and "
+        f"{'were' if plural else 'was'} skipped. Other pages were processed normally."
+    )
 
 
 def _mark_failed(db, document_id: str, reason: str) -> None:  # noqa: ANN001
