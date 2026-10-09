@@ -62,6 +62,50 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
 
+export type ConversationSource = {
+  document_id: string;
+  filename: string;
+  page?: number | null;
+  text: string;
+};
+
+export type ConversationMessage = {
+  id: string;
+  role: string;
+  content: string;
+  created_at: string;
+  sources: ConversationSource[];
+};
+
+export type ConversationSummary = {
+  id: string;
+  title: string;
+  updated_at: string;
+};
+
+export type ConversationDetail = ConversationSummary & {
+  messages: ConversationMessage[];
+};
+
+/** GET /conversations[?q=]: the signed-in user's own conversations, newest
+ * first, optionally filtered server-side by title/message text. */
+export function listConversations(q?: string): Promise<ConversationSummary[]> {
+  const trimmed = q?.trim();
+  const query = trimmed ? `?q=${encodeURIComponent(trimmed)}` : "";
+  return apiFetch<ConversationSummary[]>(`/conversations${query}`);
+}
+
+/** GET /conversations/{id}: the full exchange, including every message's
+ * citations. */
+export function getConversation(id: string): Promise<ConversationDetail> {
+  return apiFetch<ConversationDetail>(`/conversations/${id}`);
+}
+
+/** DELETE /conversations/{id}. */
+export function deleteConversationRequest(id: string): Promise<void> {
+  return apiFetch<void>(`/conversations/${id}`, { method: "DELETE" });
+}
+
 export type ChatStreamHandlers = {
   onToken?: (token: string) => void;
   onSources?: (sources: unknown) => void;
@@ -71,7 +115,7 @@ export type ChatStreamHandlers = {
   onNoMatch?: (message: string) => void;
   onPing?: () => void;
   onError?: (error: { code?: string; message?: string }) => void;
-  onDone?: () => void;
+  onDone?: (data: { message_id?: string; conversation_id?: string; partial?: boolean }) => void;
 };
 
 /** Streams a POST response as Server-Sent Events using fetch + ReadableStream
@@ -140,7 +184,10 @@ export async function postEventStream(
         handlers.onError?.((data as { code?: string; message?: string } | undefined) ?? {});
         break;
       case "done":
-        handlers.onDone?.();
+        handlers.onDone?.(
+          (data as { message_id?: string; conversation_id?: string; partial?: boolean } | undefined) ??
+            {},
+        );
         break;
       default:
         break;

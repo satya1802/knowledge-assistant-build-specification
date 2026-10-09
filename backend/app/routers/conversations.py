@@ -6,7 +6,7 @@ check -- requesting or deleting another user's conversation by id is
 refused with a plain 404, identical to "no such conversation" (AC-072).
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.models import Conversation
 from app.routers.auth import CurrentUser, DbSession
@@ -21,9 +21,15 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
 @router.get("", response_model=list[ConversationOut])
-def get_conversations(current_user: CurrentUser, db: DbSession) -> list[Conversation]:
-    """AC-073: the caller's own conversations only, newest first."""
-    return list_conversations(db, current_user.id)
+def get_conversations(
+    current_user: CurrentUser,
+    db: DbSession,
+    q: str | None = Query(default=None, description="Search term: matches title or message text"),
+) -> list[Conversation]:
+    """AC-073: the caller's own conversations only, newest first. With `q`,
+    restricted to conversations whose title or any message content contains
+    the term, case-insensitively -- never another user's conversation."""
+    return list_conversations(db, current_user.id, q)
 
 
 @router.get("/{conversation_id}", response_model=ConversationDetailOut)

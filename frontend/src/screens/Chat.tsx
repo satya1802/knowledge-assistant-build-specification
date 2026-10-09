@@ -5,7 +5,14 @@ import * as UI from "@/lib/ui";
 import { Icons } from "@/lib/icons";
 import { brand } from "@/lib/brand";
 import { useNavigate } from "@/lib/navigate";
-import { postEventStream, ApiError, API_BASE_URL } from "@/lib/api";
+import {
+  postEventStream,
+  ApiError,
+  API_BASE_URL,
+  listConversations,
+  getConversation,
+  deleteConversationRequest,
+} from "@/lib/api";
 
 const { Table } = UI;
 const {
@@ -32,13 +39,49 @@ const SUGGESTIONS = [
 
 const STOPPED_TEXT = "No answer was generated before the request was stopped.";
 const CONNECTION_LOST_TEXT = "Connection to the assistant was lost. Try asking again.";
+const SEARCH_DEBOUNCE_MS = 300;
 
 function isoDate(d) {
   return d.toISOString().slice(0, 10);
 }
 
 function makeEmptyConversation(id) {
-  return { id, title: "", updatedAt: new Date().toISOString(), messages: [] };
+  return {
+    id,
+    backendId: null,
+    title: "",
+    updatedAt: new Date().toISOString(),
+    messages: [],
+    loaded: true,
+  };
+}
+
+function timeFromIso(iso) {
+  const d = new Date(iso);
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+function mapDetailToLocal(detail) {
+  return {
+    id: detail.id,
+    backendId: detail.id,
+    title: detail.title,
+    updatedAt: detail.updated_at,
+    loaded: true,
+    messages: (detail.messages || []).map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      time: timeFromIso(m.created_at),
+      state: "complete",
+      sources: (m.sources || []).map((s) => ({
+        id: s.document_id,
+        filename: s.filename,
+        page: s.page,
+        text: s.text,
+      })),
+    })),
+  };
 }
 
 export default function Screen() {
@@ -58,10 +101,18 @@ export default function Screen() {
     ChevronRight,
   } = Icons;
 
-  const [conversations, setConversations] = React.useState(() => [makeEmptyConversation("conv-1")]);
-  const [activeId, setActiveId] = React.useState("conv-1");
+  // `conversations` holds only conversations persisted on the server
+  // (populated from GET /conversations); the currently unsaved "new
+  // conversation" lives separately in `draftConv` until the backend assigns
+  // it a real id (on the first exchange's `done` event), at which point it
+  // moves into `conversations`.
+  const [conversations, setConversations] = React.useState([]);
+  const [draftConv, setDraftConv] = React.useState(() => makeEmptyConversation("draft-1"));
+  const [activeId, setActiveId] = React.useState("draft-1");
   const [historyQuery, setHistoryQuery] = React.useState("");
-  const [draft, setDraft] = React.useState("");
+  const [historyError, setHistoryError] = React.useState("");
+  const [loadingConvId, setLoadingConvId] = React.useState(null);
+  const [questionText, setQuestionText] = React.useState("");
   const [streamingId, setStreamingId] = React.useState(null);
   const [panel, setPanel] = React.useState(null);
   const [copiedId, setCopiedId] = React.useState(null);
@@ -76,6 +127,8 @@ export default function Screen() {
   const confirmRef = React.useRef(null);
   const composerRef = React.useRef(null);
   const abortRef = React.useRef(null);
+  const historyQueryRef = React.useRef("");
+  const didMountSearchRef = React.useRef(false);
 
   const speechSupported =
     typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined";
@@ -137,36 +190,131 @@ export default function Screen() {
     };
   }, []);
 
-  const active = conversations.find((c) => c.id === activeId) || null;
+  /* ---------- keep a ref of the current search term for async callbacks ---------- */
+  React.useEffect(() => {
+    historyQueryRef.current = historyQuery;
+  }, [historyQuery]);
+
+  /* ---------- load the user's conversation history on mount ---------- */
+  React.useEffect(() => {
+    fetchConversations(undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ---------- debounced search against GET /conversations?q= ---------- */
+  React.useEffect(() => {
+    if (!didMountSearchRef.current) {
+      didMountSearchRef.current = true;
+      return undefined;
+    }
+    const term = historyQuery.trim();
+    const timer = setTimeout(() => {
+      fetchConversations(term || undefined);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyQuery]);
+
+  async function fetchConversations(q) {
+    try {
+      const results = await listConversations(q);
+      mergeServerList(results);
+      setHistoryError("");
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Could not load your conversations. Try again.";
+      setHistoryError(message);
+    }
+  }
+
+  function mergeServerList(serverList) {
+    setConversations((cs) => {
+      const byId = new Map(cs.map((c) => [c.id, c]));
+      return (serverList || []).map((s) => {
+        const prev = byId.get(s.id);
+        if (prev && prev.loaded) {
+          return { ...prev, title: s.title, updatedAt: s.updated_at };
+        }
+        return {
+          id: s.id,
+          backendId: s.id,
+          title: s.title,
+          updatedAt: s.updated_at,
+          loaded: false,
+          messages: [],
+        };
+      });
+    });
+  }
+
+  function refreshConversationsList() {
+    fetchConversations(historyQueryRef.current.trim() || undefined);
+  }
+
+  async function selectConversation(id) {
+    setHistoryOpen(false);
+    setActiveId(id);
+    const target = conversations.find((c) => c.id === id);
+    if (!target || target.loaded) return;
+    setLoadingConvId(id);
+    try {
+      const detail = await getConversation(id);
+      setHistoryError("");
+      setConversations((cs) => cs.map((c) => (c.id === id ? mapDetailToLocal(detail) : c)));
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Could not load this conversation. Try again.";
+      setHistoryError(message);
+    } finally {
+      setLoadingConvId((current) => (current === id ? null : current));
+    }
+  }
+
+  const active =
+    draftConv && draftConv.id === activeId
+      ? draftConv
+      : conversations.find((c) => c.id === activeId) || null;
+
+  /* ---------- applies an update to whichever of draftConv/conversations
+   * currently holds this conversation id ---------- */
+  function updateConv(convId, updater) {
+    setDraftConv((d) => (d && d.id === convId ? updater(d) : d));
+    setConversations((cs) => cs.map((c) => (c.id === convId ? updater(c) : c)));
+  }
+
+  /* ---------- once the backend assigns a real conversation id (on the
+   * first exchange's `done` event), the draft becomes a persisted entry ---------- */
+  function promoteConversation(oldId, newId) {
+    if (oldId === newId) return;
+    setDraftConv((d) => {
+      if (!d || d.id !== oldId) return d;
+      const persisted = { ...d, id: newId, backendId: newId, loaded: true };
+      setConversations((cs) => [persisted, ...cs.filter((c) => c.id !== newId)]);
+      return null;
+    });
+    setConversations((cs) =>
+      cs.map((c) => (c.id === oldId ? { ...c, id: newId, backendId: newId } : c)),
+    );
+    setActiveId((current) => (current === oldId ? newId : current));
+    refreshConversationsList();
+  }
 
   function appendToken(convId, msgId, token) {
     if (!token) return;
-    setConversations((cs) =>
-      cs.map((c) =>
-        c.id === convId
-          ? {
-              ...c,
-              messages: c.messages.map((m) =>
-                m.id === msgId ? { ...m, content: m.content + token } : m,
-              ),
-            }
-          : c,
+    updateConv(convId, (c) => ({
+      ...c,
+      messages: c.messages.map((m) =>
+        m.id === msgId ? { ...m, content: m.content + token } : m,
       ),
-    );
+    }));
   }
 
   function applySources(convId, msgId, sources) {
     const list = Array.isArray(sources) ? sources : [];
-    setConversations((cs) =>
-      cs.map((c) =>
-        c.id === convId
-          ? {
-              ...c,
-              messages: c.messages.map((m) => (m.id === msgId ? { ...m, sources: list } : m)),
-            }
-          : c,
-      ),
-    );
+    updateConv(convId, (c) => ({
+      ...c,
+      messages: c.messages.map((m) => (m.id === msgId ? { ...m, sources: list } : m)),
+    }));
   }
 
   function applyNoMatch(convId, msgId, message) {
@@ -174,18 +322,12 @@ export default function Screen() {
       typeof message === "string" && message.trim()
         ? message
         : "No relevant documents were found for this question.";
-    setConversations((cs) =>
-      cs.map((c) =>
-        c.id === convId
-          ? {
-              ...c,
-              messages: c.messages.map((m) =>
-                m.id === msgId ? { ...m, state: "none", content: text, sources: [] } : m,
-              ),
-            }
-          : c,
+    updateConv(convId, (c) => ({
+      ...c,
+      messages: c.messages.map((m) =>
+        m.id === msgId ? { ...m, state: "none", content: text, sources: [] } : m,
       ),
-    );
+    }));
   }
 
   function applyError(convId, msgId, code, message) {
@@ -193,57 +335,50 @@ export default function Screen() {
       typeof message === "string" && message.trim()
         ? message
         : "Something went wrong generating this answer. Try again.";
-    setConversations((cs) =>
-      cs.map((c) =>
-        c.id === convId
+    updateConv(convId, (c) => ({
+      ...c,
+      messages: c.messages.map((m) =>
+        m.id === msgId
           ? {
-              ...c,
-              messages: c.messages.map((m) =>
-                m.id === msgId
-                  ? {
-                      ...m,
-                      state: code === "quota_exhausted" ? "error" : "none",
-                      content: text,
-                      errorCode: code,
-                    }
-                  : m,
-              ),
+              ...m,
+              state: code === "quota_exhausted" ? "error" : "none",
+              content: text,
+              errorCode: code,
             }
-          : c,
+          : m,
       ),
-    );
+    }));
   }
 
   function finalizeDone(convId, msgId) {
-    setConversations((cs) =>
-      cs.map((c) =>
-        c.id === convId
-          ? {
-              ...c,
-              messages: c.messages.map((m) =>
-                m.id === msgId && m.state === "streaming" ? { ...m, state: "complete" } : m,
-              ),
-            }
-          : c,
+    updateConv(convId, (c) => ({
+      ...c,
+      messages: c.messages.map((m) =>
+        m.id === msgId && m.state === "streaming" ? { ...m, state: "complete" } : m,
       ),
-    );
+    }));
   }
 
-  async function runStream(convId, msgId, question) {
+  async function runStream(convId, msgId, question, backendId) {
     const controller = new AbortController();
     abortRef.current = { controller, convId, msgId };
     setStreamingId(msgId);
     try {
       await postEventStream(
         "/chat/ask",
-        { question },
+        backendId ? { question, conversation_id: backendId } : { question },
         {
           onToken: (token) => appendToken(convId, msgId, token),
           onSources: (sources) => applySources(convId, msgId, sources),
           onNoMatch: (message) => applyNoMatch(convId, msgId, message),
           onPing: () => {},
           onError: (err) => applyError(convId, msgId, err && err.code, err && err.message),
-          onDone: () => finalizeDone(convId, msgId),
+          onDone: (data) => {
+            finalizeDone(convId, msgId);
+            const newBackendId =
+              data && typeof data.conversation_id === "string" ? data.conversation_id : null;
+            if (newBackendId) promoteConversation(convId, newBackendId);
+          },
         },
         controller.signal,
       );
@@ -261,68 +396,57 @@ export default function Screen() {
 
   function handleAsk(e) {
     e.preventDefault();
-    const question = draft.trim();
+    const question = questionText.trim();
     if (!question || streamingId) return;
     const userId = nextId();
     const msgId = nextId();
     const time = nowTime();
     const convId = activeId;
-    setConversations((cs) =>
-      cs.map((c) =>
-        c.id === convId
-          ? {
-              ...c,
-              title: c.title || (question.length > 46 ? question.slice(0, 46) + "…" : question),
-              updatedAt: nowIso(),
-              messages: [
-                ...c.messages,
-                {
-                  id: userId,
-                  role: "user",
-                  content: question,
-                  time,
-                  state: "complete",
-                  sources: [],
-                },
-                {
-                  id: msgId,
-                  role: "assistant",
-                  content: "",
-                  time,
-                  state: "streaming",
-                  sources: [],
-                },
-              ],
-            }
-          : c,
-      ),
-    );
-    setDraft("");
-    runStream(convId, msgId, question);
+    const backendId = active ? active.backendId : null;
+    updateConv(convId, (c) => ({
+      ...c,
+      title: c.title || (question.length > 46 ? question.slice(0, 46) + "…" : question),
+      updatedAt: nowIso(),
+      messages: [
+        ...c.messages,
+        {
+          id: userId,
+          role: "user",
+          content: question,
+          time,
+          state: "complete",
+          sources: [],
+        },
+        {
+          id: msgId,
+          role: "assistant",
+          content: "",
+          time,
+          state: "streaming",
+          sources: [],
+        },
+      ],
+    }));
+    setQuestionText("");
+    runStream(convId, msgId, question, backendId);
   }
 
   function handleStop() {
     const current = abortRef.current;
     if (!current) return;
     current.controller.abort();
-    setConversations((cs) =>
-      cs.map((c) =>
-        c.id === current.convId
+    updateConv(current.convId, (c) => ({
+      ...c,
+      messages: c.messages.map((m) =>
+        m.id === current.msgId
           ? {
-              ...c,
-              messages: c.messages.map((m) =>
-                m.id === current.msgId
-                  ? {
-                      ...m,
-                      state: m.content.trim() ? "complete" : "none",
-                      content: m.content || STOPPED_TEXT,
-                    }
-                  : m,
-              ),
+              ...m,
+              state: m.content.trim() ? "complete" : "none",
+              content: m.content || STOPPED_TEXT,
             }
-          : c,
+          : m,
       ),
-    );
+    }));
     abortRef.current = null;
     setStreamingId(null);
     if (composerRef.current) composerRef.current.focus();
@@ -340,28 +464,23 @@ export default function Screen() {
     }
     if (!question) return;
     const convId = active.id;
-    setConversations((cs) =>
-      cs.map((c) =>
-        c.id === convId
+    const backendId = active.backendId;
+    updateConv(convId, (c) => ({
+      ...c,
+      updatedAt: nowIso(),
+      messages: c.messages.map((m) =>
+        m.id === message.id
           ? {
-              ...c,
-              updatedAt: nowIso(),
-              messages: c.messages.map((m) =>
-                m.id === message.id
-                  ? {
-                      ...m,
-                      content: "",
-                      state: "streaming",
-                      sources: [],
-                      time: nowTime(),
-                    }
-                  : m,
-              ),
+              ...m,
+              content: "",
+              state: "streaming",
+              sources: [],
+              time: nowTime(),
             }
-          : c,
+          : m,
       ),
-    );
-    runStream(convId, message.id, question);
+    }));
+    runStream(convId, message.id, question, backendId);
   }
 
   function handleCopy(message) {
@@ -387,12 +506,11 @@ export default function Screen() {
 
   function newConversation() {
     if (streamingId) handleStop();
-    const existingEmpty = conversations.find((c) => c.messages.length === 0);
-    if (existingEmpty) {
-      setActiveId(existingEmpty.id);
+    if (draftConv) {
+      setActiveId(draftConv.id);
     } else {
       const id = nextId();
-      setConversations((cs) => [makeEmptyConversation(id), ...cs]);
+      setDraftConv(makeEmptyConversation(id));
       setActiveId(id);
     }
     setHistoryOpen(false);
@@ -419,7 +537,7 @@ export default function Screen() {
     if (deleteReturnRef.current) deleteReturnRef.current.focus();
   }
 
-  function deleteConversation() {
+  async function deleteConversation() {
     const id = confirmId;
     if (!id) return;
     if (abortRef.current && abortRef.current.convId === id) {
@@ -427,17 +545,33 @@ export default function Screen() {
       abortRef.current = null;
       setStreamingId(null);
     }
-    setConversations((cs) => {
-      const remaining = cs.filter((c) => c.id !== id);
+    const isDraft = draftConv && draftConv.id === id;
+    if (isDraft) {
+      const fresh = makeEmptyConversation(nextId());
+      setDraftConv(fresh);
+      setActiveId(fresh.id);
+      setConfirmId(null);
+      setHistoryError("");
+      if (composerRef.current) composerRef.current.focus();
+      return;
+    }
+    try {
+      await deleteConversationRequest(id);
+      setHistoryError("");
+      setConversations((cs) => cs.filter((c) => c.id !== id));
       if (activeId === id) {
-        const fresh = makeEmptyConversation("id-" + (idRef.current += 1));
+        const fresh = makeEmptyConversation(nextId());
+        setDraftConv(fresh);
         setActiveId(fresh.id);
-        return [fresh, ...remaining];
       }
-      return remaining;
-    });
-    setConfirmId(null);
-    if (composerRef.current) composerRef.current.focus();
+      setConfirmId(null);
+      if (composerRef.current) composerRef.current.focus();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Could not delete this conversation. Try again.";
+      setHistoryError(message);
+      setConfirmId(null);
+    }
   }
 
   /* ---------- history grouping ---------- */
@@ -481,7 +615,10 @@ export default function Screen() {
     "focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#14304F] focus-visible:ring-offset-white";
 
   const panelChunk = panel ? panel.source : null;
-  const confirmTarget = conversations.find((c) => c.id === confirmId) || null;
+  const confirmTarget =
+    (draftConv && draftConv.id === confirmId ? draftConv : null) ||
+    conversations.find((c) => c.id === confirmId) ||
+    null;
 
   return (
     <div
@@ -592,6 +729,15 @@ export default function Screen() {
                 />
               </div>
             </div>
+            {historyError && (
+              <p
+                role="alert"
+                className="mt-3 flex items-start gap-2 rounded-lg border border-[#E7C3BF] bg-[#FCF2F1] px-3 py-2 text-xs leading-5 text-[#5F2120]"
+              >
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                {historyError}
+              </p>
+            )}
           </div>
 
           <div className="max-h-[52vh] overflow-y-auto px-2 py-3 lg:max-h-[60vh]">
@@ -638,10 +784,7 @@ export default function Screen() {
                             <button
                               type="button"
                               aria-current={isActive ? "true" : undefined}
-                              onClick={() => {
-                                setActiveId(c.id);
-                                setHistoryOpen(false);
-                              }}
+                              onClick={() => selectConversation(c.id)}
                               className={"flex-1 rounded-lg px-3 py-2.5 text-left " + focusRing}
                             >
                               <span
@@ -651,7 +794,8 @@ export default function Screen() {
                                 {c.title || "New conversation"}
                               </span>
                               <span className="mt-0.5 block truncate text-xs text-slate-500">
-                                {c.updatedAt.slice(11, 16)} · {preview}
+                                {c.updatedAt.slice(11, 16)} ·{" "}
+                                {loadingConvId === c.id ? "Loading…" : preview}
                               </span>
                             </button>
                             <button
@@ -745,7 +889,7 @@ export default function Screen() {
                       <button
                         type="button"
                         onClick={() => {
-                          setDraft(s);
+                          setQuestionText(s);
                           if (composerRef.current) composerRef.current.focus();
                         }}
                         className={
@@ -966,9 +1110,9 @@ export default function Screen() {
               id="question"
               ref={composerRef}
               rows={3}
-              value={draft}
+              value={questionText}
               disabled={Boolean(streamingId)}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => setQuestionText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -1003,7 +1147,7 @@ export default function Screen() {
                 )}
                 <button
                   type="submit"
-                  disabled={Boolean(streamingId) || draft.trim().length === 0}
+                  disabled={Boolean(streamingId) || questionText.trim().length === 0}
                   className={
                     "inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 " +
                     focusRing

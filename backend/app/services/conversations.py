@@ -10,7 +10,7 @@ exactly like "does not exist" (`None`), never a distinct "forbidden" signal.
 
 import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import ChatMessage, Conversation
@@ -114,13 +114,28 @@ def record_exchange(
     return assistant_message.id
 
 
-def list_conversations(db: Session, user_id: str) -> list[Conversation]:
-    """Newest first (AC-073), this user's own rows only (AC-072)."""
-    stmt = (
-        select(Conversation)
-        .where(Conversation.user_id == user_id)
-        .order_by(Conversation.updated_at.desc())
-    )
+def list_conversations(db: Session, user_id: str, q: str | None = None) -> list[Conversation]:
+    """Newest first (AC-073), this user's own rows only (AC-072).
+
+    `q`, when given, restricts the result to conversations whose title or
+    any message's content contains the term, case-insensitively (search is
+    server-side only -- there is no client-side filtering to fall back on).
+    A conversation matches via its messages is still only ever this user's
+    own: the `ChatMessage` join never crosses the `Conversation.user_id`
+    filter below.
+    """
+    stmt = select(Conversation).where(Conversation.user_id == user_id)
+    if q:
+        term = f"%{q.strip().lower()}%"
+        stmt = (
+            stmt.outerjoin(ChatMessage, ChatMessage.conversation_id == Conversation.id)
+            .where(
+                (func.lower(Conversation.title).like(term))
+                | (func.lower(ChatMessage.content).like(term))
+            )
+            .distinct()
+        )
+    stmt = stmt.order_by(Conversation.updated_at.desc())
     return list(db.scalars(stmt).all())
 
 
