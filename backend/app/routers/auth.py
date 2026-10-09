@@ -20,6 +20,7 @@ from app.database import get_db
 from app.models import LoginLockout, User
 from app.models import Session as SessionModel
 from app.schemas import ConfigOut, LoginRequest, MessageResponse, SignupRequest, UserOut
+from app.services.time_utils import ensure_utc
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -111,7 +112,8 @@ def _record_failed_attempt(db: DBSession, email: str, now: datetime.datetime) ->
 
     window_expired = (
         lockout.first_failure_at is None
-        or (now - lockout.first_failure_at).total_seconds() > settings.LOGIN_LOCKOUT_WINDOW_SECONDS
+        or (ensure_utc(now) - ensure_utc(lockout.first_failure_at)).total_seconds()
+        > settings.LOGIN_LOCKOUT_WINDOW_SECONDS
     )
     if window_expired:
         lockout.failed_count = 0
@@ -152,13 +154,13 @@ def get_current_user(
 
     session_row = db.get(SessionModel, session_uuid)
     now = datetime.datetime.utcnow()
-    if session_row is None or session_row.expires_at < now:
+    if session_row is None or ensure_utc(session_row.expires_at) < ensure_utc(now):
         raise _unauthorized()
 
-    idle_cutoff = session_row.last_activity_at + datetime.timedelta(
+    idle_cutoff = ensure_utc(session_row.last_activity_at) + datetime.timedelta(
         seconds=settings.SESSION_IDLE_SECONDS
     )
-    if idle_cutoff < now:
+    if idle_cutoff < ensure_utc(now):
         db.delete(session_row)
         db.commit()
         raise _unauthorized()
@@ -189,7 +191,11 @@ def login(payload: LoginRequest, response: Response, db: DbSession) -> User:
     now = datetime.datetime.utcnow()
 
     lockout = db.get(LoginLockout, email)
-    if lockout is not None and lockout.locked_until is not None and lockout.locked_until > now:
+    if (
+        lockout is not None
+        and lockout.locked_until is not None
+        and ensure_utc(lockout.locked_until) > ensure_utc(now)
+    ):
         # Locked: the same generic error, even with the correct password
         # (AC-005). The password is never checked while locked.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=GENERIC_LOGIN_ERROR)

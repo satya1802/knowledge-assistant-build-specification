@@ -4,24 +4,23 @@ One pair per entity in the approved data model, plus the placeholder every
 generated route returns until it has been implemented.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, field_serializer, field_validator
+
+from app.services.time_utils import ensure_utc
 
 
 def _utc_iso(value: datetime) -> str:
     """Serialise a UTC timestamp with an explicit offset (AC-070/AC-073).
 
-    Model columns store naive UTC values (`datetime.utcnow()`); a naive
-    value is assumed to already be UTC and is given that timezone before
-    formatting, rather than ever being treated as local time.
+    Goes through the shared `ensure_utc` helper (also used by
+    `app.routers.auth`'s session expiry/idle comparisons) so a naive value
+    -- what every model column here stores -- is always treated as UTC,
+    never local time, identically on SQLite and Postgres.
     """
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=UTC)
-    else:
-        value = value.astimezone(UTC)
-    return value.isoformat().replace("+00:00", "Z")
+    return ensure_utc(value).isoformat().replace("+00:00", "Z")
 
 
 # Plain `str` rather than `pydantic.EmailStr`: the latter needs the
