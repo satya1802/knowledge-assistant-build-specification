@@ -124,7 +124,9 @@ export default function Screen() {
   const chipReturnRef = React.useRef(null);
   const deleteReturnRef = React.useRef(null);
   const panelCloseRef = React.useRef(null);
+  const panelDialogRef = React.useRef(null);
   const confirmRef = React.useRef(null);
+  const confirmDialogRef = React.useRef(null);
   const composerRef = React.useRef(null);
   const abortRef = React.useRef(null);
   const historyQueryRef = React.useRef("");
@@ -151,7 +153,25 @@ export default function Screen() {
     return () => clearTimeout(t);
   }, [copiedId]);
 
-  /* ---------- source panel: focus + escape ---------- */
+  /* ---------- shared: Tab-trap focus within a dialog container ---------- */
+  function trapTab(e, containerRef) {
+    if (e.key !== "Tab" || !containerRef.current) return;
+    const focusable = containerRef.current.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  /* ---------- source panel: focus trap + escape ---------- */
   React.useEffect(() => {
     if (!panel) return undefined;
     if (panelCloseRef.current) panelCloseRef.current.focus();
@@ -159,21 +179,28 @@ export default function Screen() {
       if (e.key === "Escape") {
         e.stopPropagation();
         closePanel();
+        return;
       }
+      trapTab(e, panelDialogRef);
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
   }, [panel]);
 
-  /* ---------- delete dialog: focus + escape ---------- */
+  /* ---------- delete dialog: focus trap + escape ---------- */
   React.useEffect(() => {
     if (!confirmId) return undefined;
     if (confirmRef.current) confirmRef.current.focus();
     const onKey = (e) => {
-      if (e.key === "Escape") closeConfirm();
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        closeConfirm();
+        return;
+      }
+      trapTab(e, confirmDialogRef);
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
   }, [confirmId]);
 
   /* ---------- stop speech on unmount ---------- */
@@ -303,9 +330,7 @@ export default function Screen() {
     if (!token) return;
     updateConv(convId, (c) => ({
       ...c,
-      messages: c.messages.map((m) =>
-        m.id === msgId ? { ...m, content: m.content + token } : m,
-      ),
+      messages: c.messages.map((m) => (m.id === msgId ? { ...m, content: m.content + token } : m)),
     }));
   }
 
@@ -622,7 +647,7 @@ export default function Screen() {
 
   return (
     <div
-      className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8"
+      className="w-full px-4 py-6 sm:px-6 lg:px-8"
       style={{ fontFamily: brand.fontBody, color: "#1F2933" }}
     >
       {/* Page heading */}
@@ -1172,6 +1197,7 @@ export default function Screen() {
             aria-hidden="true"
           />
           <div
+            ref={panelDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="source-panel-title"
@@ -1280,6 +1306,7 @@ export default function Screen() {
             aria-hidden="true"
           />
           <div
+            ref={confirmDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-title"

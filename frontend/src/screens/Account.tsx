@@ -131,7 +131,7 @@ export default function Screen() {
         fontFamily: brand.fontBody,
       }}
     >
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="w-full">
         <header className="mb-8">
           <h1
             className="text-3xl font-semibold tracking-tight"

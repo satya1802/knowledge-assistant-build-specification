@@ -477,7 +477,7 @@ export default function Screen() {
 
   return (
     <div
-      className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
+      className="w-full px-4 py-8 sm:px-6 lg:px-8"
       style={{ fontFamily: brand.fontBody, color: "#1B2430" }}
     >
       {/* Heading ---------------------------------------------------------- */}

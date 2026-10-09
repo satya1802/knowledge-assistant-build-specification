@@ -17,6 +17,18 @@ function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
+/**
+ * The one shared focus-visible class new layout/navigation code should use
+ * instead of inventing its own ring/outline classes per element. Backed by
+ * the global `:focus-visible` token in index.css, which uses the same
+ * `--brand-primary` colour, so this is a belt-and-braces re-statement for
+ * elements that want an explicit class rather than relying on the
+ * tag-level default.
+ */
+export const FOCUS_RING =
+  "focus:outline-none focus-visible:outline focus-visible:outline-2 " +
+  "focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-primary)]";
+
 const BUTTON_VARIANTS: Record<string, string> = {
   primary: "text-white shadow-sm hover:opacity-90",
   secondary: "border bg-white hover:bg-slate-50",

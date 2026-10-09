@@ -60,3 +60,25 @@ body {
   font-family: var(--brand-font-body);
   -webkit-font-smoothing: antialiased;
 }
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+/*
+ * One shared focus token, applied globally so every interactive element --
+ * native button, link, input, or anything a screen forgets to style by hand
+ * -- gets the same visible keyboard-focus indicator, instead of each screen
+ * duplicating its own ad hoc focus-ring classes. Screens may still layer
+ * their own focus-visible utility classes on top; this is the floor every
+ * element gets for free.
+ */
+:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  border-radius: var(--brand-radius);
+}

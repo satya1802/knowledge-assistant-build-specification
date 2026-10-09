@@ -397,7 +397,7 @@ export default function Screen() {
         fontFamily: brand.fontBody,
       }}
     >
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="w-full">
         {/* Page header */}
         <header className="border-b pb-8" style={{ borderColor: "var(--brand-border)" }}>
           <p

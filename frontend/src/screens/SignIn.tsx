@@ -202,7 +202,7 @@ export default function Screen() {
       className="min-h-full w-full"
       style={{ backgroundColor: brand.backgroundColor, fontFamily: brand.fontBody }}
     >
-      <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
+      <div className="w-full px-5 py-8 sm:px-8 sm:py-12">
         <div className="grid gap-8 lg:grid-cols-[1fr_minmax(420px,520px)] lg:gap-12">
           {/* Brand panel */}
           <section
