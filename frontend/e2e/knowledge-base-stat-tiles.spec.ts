@@ -63,8 +63,7 @@ async function signUp(page: Page, email: string): Promise<{ role: string }> {
   await page.getByLabel("Confirm password").fill(PASSWORD);
 
   const responsePromise = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/auth/signup") && response.request().method() === "POST",
+    (response) => response.url().endsWith("/auth/signup") && response.request().method() === "POST",
   );
   await page.getByRole("button", { name: "Create account" }).click();
   const response = await responsePromise;
