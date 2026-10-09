@@ -479,4 +479,69 @@ describe("KnowledgeBase screen", () => {
     unmount();
     expect(source.closed).toBe(true);
   });
+
+  // The overview section is identified by its accessible name (an sr-only
+  // heading) rather than by, say, "Ready", because that word also appears as
+  // a status badge inside the documents table -- scoping to the region is
+  // what keeps these queries from matching the wrong element.
+  function overview() {
+    return screen.getByRole("region", { name: /library overview/i });
+  }
+
+  function tile(label: string) {
+    return within(overview()).getByText(label).closest("div") as HTMLElement;
+  }
+
+  it("AC-043: tiles show total documents, ready, processing, failed and chunks indexed, computed from the API list", async () => {
+    const secondReady = { ...DOC_READY, id: 104, filename: "Second-Ready.pdf", chunk_count: 18 };
+    mockApiFetch.mockResolvedValueOnce({
+      items: [DOC_READY, secondReady, DOC_PROCESSING, DOC_FAILED],
+    });
+    renderScreen();
+    await waitFor(() => expect(screen.getByText(DOC_READY.filename)).toBeInTheDocument());
+
+    expect(within(tile("Total documents")).getByText("4")).toBeInTheDocument();
+    expect(within(tile("Ready")).getByText("2")).toBeInTheDocument();
+    expect(within(tile("Processing")).getByText("1")).toBeInTheDocument();
+    expect(within(tile("Failed")).getByText("1")).toBeInTheDocument();
+    // 182 (DOC_READY) + 18 (secondReady) + 0 (processing) + 0 (failed).
+    expect(within(tile("Chunks indexed")).getByText("200")).toBeInTheDocument();
+  });
+
+  it("AC-044: tile counts move live when a document's status changes, with no manual refresh", async () => {
+    mockApiFetch.mockResolvedValueOnce({ items: [DOC_PROCESSING] });
+    renderScreen();
+    await waitFor(() => expect(screen.getByText(DOC_PROCESSING.filename)).toBeInTheDocument());
+
+    expect(within(tile("Total documents")).getByText("1")).toBeInTheDocument();
+    expect(within(tile("Processing")).getByText("1")).toBeInTheDocument();
+    expect(within(tile("Ready")).getByText("0")).toBeInTheDocument();
+    expect(within(tile("Chunks indexed")).getByText("0")).toBeInTheDocument();
+
+    const source = MockEventSource.instances[0];
+    source.emit("document", { ...DOC_PROCESSING, status: "ready", chunk_count: 40 });
+
+    await waitFor(() => expect(within(tile("Ready")).getByText("1")).toBeInTheDocument());
+    expect(within(tile("Processing")).getByText("0")).toBeInTheDocument();
+    expect(within(tile("Chunks indexed")).getByText("40")).toBeInTheDocument();
+    expect(within(tile("Total documents")).getByText("1")).toBeInTheDocument();
+    // The update came entirely from the stream event, not a re-fetch: GET
+    // /documents was only ever called the once, on mount.
+    expect(mockApiFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("AC-045: an empty knowledge base shows zero-value tiles and an empty-state message instead of a table", async () => {
+    mockApiFetch.mockResolvedValueOnce({ items: [] });
+    renderScreen();
+    await waitFor(() =>
+      expect(screen.getByText(/the knowledge base is empty/i)).toBeInTheDocument(),
+    );
+
+    expect(within(tile("Total documents")).getByText("0")).toBeInTheDocument();
+    expect(within(tile("Ready")).getByText("0")).toBeInTheDocument();
+    expect(within(tile("Processing")).getByText("0")).toBeInTheDocument();
+    expect(within(tile("Failed")).getByText("0")).toBeInTheDocument();
+    expect(within(tile("Chunks indexed")).getByText("0")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
 });
