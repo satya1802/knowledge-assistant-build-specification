@@ -21,9 +21,7 @@ def _write_text_pdf(path: Path, page_texts: list[str]) -> None:
         objects.append(body)
         return len(objects)  # 1-based object number
 
-    font_obj_num = add_object(
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
-    )
+    font_obj_num = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
 
     page_obj_nums: list[int] = []
     content_obj_nums: list[int] = []
@@ -54,18 +52,12 @@ def _write_text_pdf(path: Path, page_texts: list[str]) -> None:
 
         stream_body = f"BT /F1 12 Tf 10 100 Td ({text}) Tj ET".encode()
         objects.append(
-            (
-                f"<< /Length {len(stream_body)} >>\nstream\n".encode()
-                + stream_body
-                + b"\nendstream"
-            )
+            f"<< /Length {len(stream_body)} >>\nstream\n".encode() + stream_body + b"\nendstream"
         )
         assert len(objects) == content_num
 
     kids = " ".join(f"{n} 0 R" for n in page_obj_nums)
-    objects.append(
-        f"<< /Type /Pages /Kids [{kids}] /Count {len(page_obj_nums)} >>".encode()
-    )
+    objects.append(f"<< /Type /Pages /Kids [{kids}] /Count {len(page_obj_nums)} >>".encode())
     assert len(objects) == pages_obj_num
 
     objects.append(f"<< /Type /Catalog /Pages {pages_obj_num} 0 R >>".encode())

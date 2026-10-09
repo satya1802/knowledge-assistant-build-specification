@@ -77,13 +77,9 @@ def _extract_pdf(path: Path) -> list[ExtractedPage]:
         # giving up, since some "encrypted" PDFs have no real password.
         try:
             if reader.decrypt("") == 0:
-                raise ExtractionError(
-                    "This PDF is password-protected and could not be read."
-                )
+                raise ExtractionError("This PDF is password-protected and could not be read.")
         except Exception as exc:  # noqa: BLE001
-            raise ExtractionError(
-                "This PDF is password-protected and could not be read."
-            ) from exc
+            raise ExtractionError("This PDF is password-protected and could not be read.") from exc
 
     try:
         pages: list[ExtractedPage] = []
@@ -149,8 +145,6 @@ def _extract_plain_text(path: Path) -> list[ExtractedPage]:
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise ExtractionError(
-            "This file is not valid UTF-8 text and could not be read."
-        ) from exc
+        raise ExtractionError("This file is not valid UTF-8 text and could not be read.") from exc
 
     return [ExtractedPage(page_number=None, text=text)]
