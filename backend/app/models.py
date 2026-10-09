@@ -10,13 +10,22 @@ per email, server-side, so lockout state survives a process restart
 import datetime
 import uuid
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.services.vector_store import EmbeddingType
 
-__all__ = ["Base", "User", "Session", "LoginLockout", "Document", "DocumentChunk"]
+__all__ = [
+    "Base",
+    "User",
+    "Session",
+    "LoginLockout",
+    "Document",
+    "DocumentChunk",
+    "Conversation",
+    "ChatMessage",
+]
 
 
 def _uuid() -> str:
@@ -143,3 +152,58 @@ class DocumentChunk(Base):
     embedding: Mapped[list[float] | None] = mapped_column(EmbeddingType(), nullable=True)
 
     document: Mapped["Document"] = relationship(back_populates="chunks")
+
+
+class Conversation(Base):
+    """A signed-in user's chat conversation (KNOW9BAE95-30-1).
+
+    `created_at`/`updated_at` are UTC naive -- `datetime.utcnow()`, never
+    local time -- documented here so a reader of the column values knows how
+    to interpret them; the API layer (`app.schemas`) is responsible for
+    serialising them with an explicit UTC offset/`Z` suffix.
+    """
+
+    __tablename__ = "conversations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.datetime.utcnow
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.datetime.utcnow,
+        onupdate=datetime.datetime.utcnow,
+    )
+
+    messages: Mapped[list["ChatMessage"]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="ChatMessage.created_at",
+    )
+
+
+class ChatMessage(Base):
+    """One message (user question or assistant answer) within a
+    `Conversation`. An assistant message's `sources` carries the citations
+    for its answer text -- document name, page, chunk text and document id
+    -- as a JSON list; a user message's `sources` is always null."""
+
+    __tablename__ = "chat_messages"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    conversation_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.datetime.utcnow
+    )
+
+    conversation: Mapped["Conversation"] = relationship(back_populates="messages")

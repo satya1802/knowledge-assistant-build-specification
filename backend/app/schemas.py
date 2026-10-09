@@ -4,10 +4,24 @@ One pair per entity in the approved data model, plus the placeholder every
 generated route returns until it has been implemented.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
+
+
+def _utc_iso(value: datetime) -> str:
+    """Serialise a UTC timestamp with an explicit offset (AC-070/AC-073).
+
+    Model columns store naive UTC values (`datetime.utcnow()`); a naive
+    value is assumed to already be UTC and is given that timezone before
+    formatting, rather than ever being treated as local time.
+    """
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return value.isoformat().replace("+00:00", "Z")
 
 # Plain `str` rather than `pydantic.EmailStr`: the latter needs the
 # `email-validator` package, which is not an approved new dependency for this
@@ -123,6 +137,57 @@ class ChatAskRequest(BaseModel):
     conversation_id: str | None = None
 
     model_config = {"extra": "forbid"}
+
+
+class SourceOut(BaseModel):
+    """One citation backing an assistant message's answer text (AC-071):
+    the document it came from, its page (when known), and the chunk text
+    itself."""
+
+    document_id: str
+    filename: str
+    page: int | None = None
+    text: str
+
+    model_config = {"from_attributes": True}
+
+
+class MessageOut(BaseModel):
+    """One message -- question or answer -- within a conversation
+    (GET /conversations/{id})."""
+
+    id: str
+    role: str
+    content: str
+    created_at: datetime
+    sources: list[SourceOut] = []
+
+    model_config = {"from_attributes": True}
+
+    @field_serializer("created_at")
+    def _serialize_created_at(self, value: datetime) -> str:
+        return _utc_iso(value)
+
+
+class ConversationOut(BaseModel):
+    """GET /conversations list entry: never another user's conversation
+    (AC-072), always a UTC timestamp with an explicit offset (AC-070)."""
+
+    id: str
+    title: str
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_serializer("updated_at")
+    def _serialize_updated_at(self, value: datetime) -> str:
+        return _utc_iso(value)
+
+
+class ConversationDetailOut(ConversationOut):
+    """GET /conversations/{id}: the full exchange (AC-071)."""
+
+    messages: list[MessageOut] = []
 
 
 class StubResponse(BaseModel):

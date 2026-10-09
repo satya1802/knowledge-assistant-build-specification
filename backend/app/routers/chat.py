@@ -1,5 +1,5 @@
 """POST /chat/ask: an authenticated, server-sent-events grounded answer
-stream (KNOW9BAE95-26-2).
+stream (KNOW9BAE95-26-2), persisted per user (KNOW9BAE95-30-1).
 
 Retrieval (`app.services.retrieval.retrieve`) runs once, synchronously, up
 front -- its `top_k`/`threshold` are server-side settings the client can
@@ -19,6 +19,11 @@ run_in_executor(...)` could: emit a `ping` event on a fixed interval while
 waiting for the next token (AC-057), and notice a client disconnect
 immediately and signal the worker thread to stop pulling from the provider
 (AC-058) rather than waiting for it to finish on its own.
+
+Every exchange -- the question, the streamed answer (full or partial) and
+its citations -- is written to the signed-in user's own conversation via
+`app.services.conversations`, creating one when `conversation_id` is absent.
+This replaces `app.services.chat_store`'s process-lifetime in-memory record.
 """
 
 import asyncio
@@ -34,7 +39,7 @@ from app.database import SessionLocal
 from app.models import DocumentChunk
 from app.routers.auth import CurrentUser
 from app.schemas import ChatAskRequest
-from app.services.chat_store import store
+from app.services.conversations import get_or_create_conversation, record_exchange
 from app.services.llm import get_provider
 from app.services.llm.base import LLMProviderError, QuotaExhaustedError
 from app.services.retrieval import RetrievedChunk, retrieve
@@ -95,6 +100,41 @@ def _build_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
     )
 
 
+def _persist_exchange(
+    *, conversation_id: str, question: str, answer: str, sources: list[dict]
+) -> str:
+    """Opens and closes its own session: called both from inside the
+    `event_source` generator's own (already-closed-by-then) `db` and after
+    it, never sharing a session across an `await` boundary."""
+    persist_db = SessionLocal()
+    try:
+        return record_exchange(
+            persist_db,
+            conversation_id=conversation_id,
+            question=question,
+            answer=answer,
+            sources=sources,
+        )
+    finally:
+        persist_db.close()
+
+
+def _sources_payload(chunks: list[RetrievedChunk]) -> list[dict]:
+    """The citations persisted on an assistant `ChatMessage` (AC-071):
+    document name, page, chunk text and document id -- deliberately without
+    the retrieval `score`, which is an implementation detail, not a
+    citation."""
+    return [
+        {
+            "document_id": chunk.document_id,
+            "filename": chunk.filename,
+            "page": chunk.page_number,
+            "text": chunk.text,
+        }
+        for chunk in chunks
+    ]
+
+
 @router.post("/ask")
 async def ask(
     payload: ChatAskRequest,
@@ -109,6 +149,26 @@ async def ask(
     if not question:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Question is required")
 
+    # Resolved (or created) up front, synchronously, so a request naming
+    # another user's conversation_id gets a plain 404 before a single SSE
+    # byte is sent (AC-072), rather than a stream that opens and then fails.
+    resolve_db = SessionLocal()
+    try:
+        try:
+            conversation = get_or_create_conversation(
+                resolve_db,
+                conversation_id=payload.conversation_id,
+                user_id=current_user.id,
+                question=question,
+            )
+        except LookupError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found"
+            ) from exc
+        conversation_id = conversation.id
+    finally:
+        resolve_db.close()
+
     async def event_source() -> AsyncIterator[str]:
         db = SessionLocal()
         kb_empty = False
@@ -121,39 +181,48 @@ async def ask(
                 # rather than reopening a session after the `finally` below.
                 kb_empty = db.scalar(select(DocumentChunk.id).limit(1)) is None
         except QuotaExhaustedError:
-            message_id = store.record(
-                conversation_id=payload.conversation_id,
+            message_id = _persist_exchange(
+                conversation_id=conversation_id,
                 question=question,
                 answer="",
-                partial=True,
+                sources=[],
             )
             yield _sse("error", {"code": "quota_exhausted", "message": _QUOTA_EXHAUSTED_MESSAGE})
-            yield _sse("done", {"message_id": message_id, "partial": True})
+            yield _sse(
+                "done",
+                {"message_id": message_id, "conversation_id": conversation_id, "partial": True},
+            )
             return
         except LLMProviderError:
-            message_id = store.record(
-                conversation_id=payload.conversation_id,
+            message_id = _persist_exchange(
+                conversation_id=conversation_id,
                 question=question,
                 answer="",
-                partial=True,
+                sources=[],
             )
             yield _sse("error", {"code": "provider_error", "message": _PROVIDER_ERROR_MESSAGE})
-            yield _sse("done", {"message_id": message_id, "partial": True})
+            yield _sse(
+                "done",
+                {"message_id": message_id, "conversation_id": conversation_id, "partial": True},
+            )
             return
         finally:
             db.close()
 
         if not chunks:
             # AC-055: never an unsourced answer -- an explicit event instead.
-            message_id = store.record(
-                conversation_id=payload.conversation_id,
+            message_id = _persist_exchange(
+                conversation_id=conversation_id,
                 question=question,
                 answer="",
-                partial=False,
+                sources=[],
             )
             message = _EMPTY_KNOWLEDGE_BASE_MESSAGE if kb_empty else _NO_MATCH_MESSAGE
             yield _sse("no_match", {"message": message})
-            yield _sse("done", {"message_id": message_id, "partial": False})
+            yield _sse(
+                "done",
+                {"message_id": message_id, "conversation_id": conversation_id, "partial": False},
+            )
             return
 
         yield _sse(
@@ -234,13 +303,16 @@ async def ask(
             # push one more token onto a queue nobody will read again.
             stop_event.set()
 
-        message_id = store.record(
-            conversation_id=payload.conversation_id,
+        message_id = _persist_exchange(
+            conversation_id=conversation_id,
             question=question,
             answer="".join(answer_parts),
-            partial=partial,
+            sources=_sources_payload(chunks),
         )
-        yield _sse("done", {"message_id": message_id, "partial": partial})
+        yield _sse(
+            "done",
+            {"message_id": message_id, "conversation_id": conversation_id, "partial": partial},
+        )
 
     return StreamingResponse(
         event_source(),
