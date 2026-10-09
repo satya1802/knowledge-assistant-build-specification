@@ -6,6 +6,14 @@ from `app.routers.documents.upload_document` -- never awaited inline, so
 `POST /documents` returns 201 immediately (AC-028). Always opens its own
 database session: the request's session is closed (and may belong to a
 different thread) long before this runs.
+
+KNOW9BAE95-26-1: each chunk's embedding is now persisted via
+`app.services.vector_store.get_vector_store()` so retrieval has vectors to
+search. Embedding goes through `app.services.ingestion.embedding.embed_chunks`
+(batching + bounded rate-limit retry, AC-040/AC-041/AC-096) rather than a
+second ad hoc retry loop here. A `QuotaExhaustedError` -- never retried -- is
+mapped to a readable `status_reason` so the document fails cleanly instead of
+staying "processing" (AC-095).
 """
 
 import logging
@@ -13,10 +21,13 @@ import logging
 from app.database import SessionLocal
 from app.models import Document, DocumentChunk
 from app.services.ingestion.chunking import chunk_pages
+from app.services.ingestion.embedding import embed_chunks
 from app.services.ingestion.events import broker
 from app.services.ingestion.extract import ExtractionError, extract_document
 from app.services.llm import get_provider
+from app.services.llm.base import QuotaExhaustedError
 from app.services.storage import storage_dir
+from app.services.vector_store import get_vector_store
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +51,11 @@ def run_ingestion(document_id: str) -> None:
             _ingest(db, document)
         except ExtractionError as exc:
             _mark_failed(db, document_id, exc.reason)
+        except QuotaExhaustedError as exc:
+            # Already a short, redacted, readable message (AC-095) -- never
+            # retried (AC-096), so the document fails immediately rather
+            # than staying "processing" while retries burn time.
+            _mark_failed(db, document_id, str(exc))
         except Exception:  # noqa: BLE001 -- any other failure must not crash the worker
             logger.exception("Ingestion failed for document %s", document_id)
             _mark_failed(db, document_id, _GENERIC_FAILURE_REASON)
@@ -55,22 +71,22 @@ def _ingest(db, document: Document) -> None:  # noqa: ANN001 -- Session, kept lo
     ocr_note = _ocr_unavailable_note(pages)
     chunks = chunk_pages(pages)
 
-    # Stub-acceptable embedding step (constraint): a real provider call that
-    # can fail like any other I/O, even though this ticket does not persist
-    # the resulting vectors.
+    embeddings: list[list[float]] = []
     if chunks:
-        get_provider().embed([chunk.text for chunk in chunks])
+        embeddings = embed_chunks(get_provider(), [chunk.text for chunk in chunks])
 
     db.query(DocumentChunk).filter(DocumentChunk.document_id == document.id).delete()
-    for chunk in chunks:
-        db.add(
-            DocumentChunk(
-                document_id=document.id,
-                ordinal=chunk.ordinal,
-                page_number=chunk.page_number,
-                text=chunk.text,
-            )
+
+    store = get_vector_store()
+    for chunk, embedding in zip(chunks, embeddings, strict=True):
+        chunk_row = DocumentChunk(
+            document_id=document.id,
+            ordinal=chunk.ordinal,
+            page_number=chunk.page_number,
+            text=chunk.text,
         )
+        store.set_chunk_embedding(chunk_row, embedding)
+        db.add(chunk_row)
 
     # Ingestion always reaches a terminal status (AC-037): a document whose
     # pages were all skipped for missing OCR still lands here as "ready",

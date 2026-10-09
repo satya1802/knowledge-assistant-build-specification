@@ -61,3 +61,96 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
+
+export type ChatStreamHandlers = {
+  onToken?: (token: string) => void;
+  onSources?: (sources: unknown) => void;
+  onPing?: () => void;
+  onError?: (error: { code?: string; message?: string }) => void;
+  onDone?: () => void;
+};
+
+/** Streams a POST response as Server-Sent Events using fetch + ReadableStream
+ * (not EventSource, since the request needs a JSON body). Parses `event:`/`data:`
+ * blocks separated by a blank line and dispatches each to the matching handler
+ * by event name -- token, sources, ping, error, done. Pass an AbortController's
+ * signal so a caller (e.g. a Stop button) can end the request immediately
+ * without waiting for the server to close the stream. */
+export async function postEventStream(
+  path: string,
+  body: unknown,
+  handlers: ChatStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!response.ok || !response.body) {
+    let detail = `POST ${path} failed: ${response.status}`;
+    try {
+      const data = await response.clone().json();
+      if (data && typeof data.detail === "string" && data.detail.trim()) detail = data.detail;
+    } catch {
+      // No JSON body (or not valid JSON) -- keep the generic message.
+    }
+    throw new ApiError(detail, response.status);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const dispatch = (eventName: string, dataStr: string) => {
+    let data: unknown;
+    if (dataStr) {
+      try {
+        data = JSON.parse(dataStr);
+      } catch {
+        data = dataStr;
+      }
+    }
+    switch (eventName) {
+      case "token":
+        handlers.onToken?.(
+          typeof data === "string" ? data : ((data as { token?: string } | undefined)?.token ?? ""),
+        );
+        break;
+      case "sources":
+        handlers.onSources?.((data as { sources?: unknown } | undefined)?.sources ?? data);
+        break;
+      case "ping":
+        handlers.onPing?.();
+        break;
+      case "error":
+        handlers.onError?.((data as { code?: string; message?: string } | undefined) ?? {});
+        break;
+      case "done":
+        handlers.onDone?.();
+        break;
+      default:
+        break;
+    }
+  };
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() ?? "";
+    for (const block of blocks) {
+      if (!block.trim()) continue;
+      let eventName = "message";
+      const dataLines: string[] = [];
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event:")) eventName = line.slice(6).trim();
+        else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+      }
+      dispatch(eventName, dataLines.join("\n"));
+    }
+  }
+}

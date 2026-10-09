@@ -62,6 +62,22 @@ class Settings:
     GEMINI_EMBEDDING_MODEL: str = os.getenv("GEMINI_EMBEDDING_MODEL", "text-embedding-004")
     GEMINI_ANSWER_MODEL: str = os.getenv("GEMINI_ANSWER_MODEL", "gemini-2.5-flash-lite")
 
+    # Retrieval (KNOW9BAE95-26-1): server-side only settings -- there is no
+    # request parameter or user control for either (AC-056). The threshold is
+    # a cosine similarity score in [-1, 1]; only chunks scoring at or above it
+    # are ever returned.
+    RETRIEVAL_TOP_K: int = int(os.getenv("RETRIEVAL_TOP_K", "5"))
+    RETRIEVAL_MIN_SCORE: float = float(os.getenv("RETRIEVAL_MIN_SCORE", "0.62"))
+
+    # Shared bounded-retry policy for a retryable Gemini rate-limit error,
+    # reused by both the embedding batch call (ingestion) and the answer
+    # call (chat) (AC-096). An exhausted-quota error is never retried under
+    # this policy regardless -- see app.services.llm.base.QuotaExhaustedError.
+    LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "3"))
+    LLM_RETRY_BACKOFF_BASE_SECONDS: float = float(
+        os.getenv("LLM_RETRY_BACKOFF_BASE_SECONDS", "0.5")
+    )
+
     # Admin-controlled switch for self-service account creation (AC-008/009).
     # True by default so a fresh clone's sign-in page offers "create account"
     # out of the box; an admin sets this to 0 to hide/disable it.

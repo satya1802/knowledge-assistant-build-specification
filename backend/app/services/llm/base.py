@@ -26,12 +26,23 @@ class LLMProviderError(Exception):
 
 
 class RateLimitError(LLMProviderError):
-    """A Gemini call failed specifically because of rate limiting/quota.
+    """A Gemini call failed specifically because of rate limiting, and the
+    failure is expected to be transient.
 
     Distinguished from the base `LLMProviderError` so a caller (see
     `app.services.ingestion.embedding`) can retry this one failure mode with
-    backoff and treat every other provider failure as immediately terminal
-    (AC-041).
+    bounded exponential backoff and treat every other provider failure as
+    immediately terminal (AC-041/AC-096).
+    """
+
+
+class QuotaExhaustedError(LLMProviderError):
+    """A Gemini call failed because the account/project's quota is exhausted.
+
+    Distinct from `RateLimitError`: an exhausted quota cannot be fixed by
+    waiting a few seconds and trying again, so this is never retried
+    (AC-096) -- it surfaces immediately, and ingestion maps it to a short,
+    readable `status_reason` on the document (AC-095).
     """
 
 

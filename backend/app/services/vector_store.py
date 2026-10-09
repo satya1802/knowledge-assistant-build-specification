@@ -16,10 +16,12 @@ SQLite. That dispatch is on the SQLAlchemy *dialect*, not on `DATABASE_URL`,
 and it is the column's concern, not a caller's.
 """
 
+import math
 from typing import TYPE_CHECKING, Protocol
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import JSON
+from sqlalchemy.orm import Session
 from sqlalchemy.types import Text, TypeDecorator
 
 from app.database import DATABASE_URL
@@ -88,6 +90,31 @@ class VectorStore(Protocol):
         (AC-042)."""
         ...
 
+    def search_similar_chunks(
+        self,
+        db: Session,
+        query_embedding: list[float],
+        *,
+        top_k: int,
+        threshold: float,
+    ) -> list[tuple["DocumentChunk", float]]:
+        """Return at most `top_k` `(chunk, cosine_similarity)` pairs scoring
+        at or above `threshold`, ordered by score descending (AC-056). A
+        chunk with no embedding is skipped, never a crash (KNOW9BAE95-26-1).
+        Selected by backend here -- the caller (`app.services.retrieval`)
+        never branches on `DATABASE_URL` itself.
+        """
+        ...
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b, strict=True))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
 
 def _read_embedding(chunk: "DocumentChunk") -> list[float] | None:
     embedding = chunk.embedding
@@ -107,6 +134,31 @@ class SQLiteVectorStore:
     def get_chunk_embedding(self, chunk: "DocumentChunk") -> list[float] | None:
         return _read_embedding(chunk)
 
+    def search_similar_chunks(
+        self,
+        db: Session,
+        query_embedding: list[float],
+        *,
+        top_k: int,
+        threshold: float,
+    ) -> list[tuple["DocumentChunk", float]]:
+        from app.models import DocumentChunk
+
+        candidates = db.query(DocumentChunk).filter(DocumentChunk.embedding.isnot(None)).all()
+        scored: list[tuple[DocumentChunk, float]] = []
+        for chunk in candidates:
+            embedding = _read_embedding(chunk)
+            if embedding is None or len(embedding) != len(query_embedding):
+                # No usable vector to compare against -- skipped, never a
+                # crash (KNOW9BAE95-26-1).
+                continue
+            score = _cosine_similarity(query_embedding, embedding)
+            if score >= threshold:
+                scored.append((chunk, score))
+
+        scored.sort(key=lambda pair: pair[1], reverse=True)
+        return scored[:top_k]
+
 
 class PgVectorStore:
     """Postgres backend: embeddings live in a pgvector column, via
@@ -119,6 +171,32 @@ class PgVectorStore:
 
     def get_chunk_embedding(self, chunk: "DocumentChunk") -> list[float] | None:
         return _read_embedding(chunk)
+
+    def search_similar_chunks(
+        self,
+        db: Session,
+        query_embedding: list[float],
+        *,
+        top_k: int,
+        threshold: float,
+    ) -> list[tuple["DocumentChunk", float]]:
+        # pgvector's cosine_distance is 1 - cosine_similarity; both the
+        # threshold filter and the ordering are pushed down to the database
+        # rather than pulling every row into Python (unlike the SQLite
+        # backend above, which has no such operator to push down to).
+        from app.models import DocumentChunk
+
+        distance = DocumentChunk.embedding.cosine_distance(query_embedding)
+        similarity = (1 - distance).label("score")
+        rows = (
+            db.query(DocumentChunk, similarity)
+            .filter(DocumentChunk.embedding.isnot(None))
+            .filter(similarity >= threshold)
+            .order_by(distance)
+            .limit(top_k)
+            .all()
+        )
+        return [(chunk, float(score)) for chunk, score in rows]
 
 
 _store: VectorStore | None = None

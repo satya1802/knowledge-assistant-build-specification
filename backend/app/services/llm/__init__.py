@@ -7,11 +7,24 @@ themselves (contract for KNOW9BAE95-37-1).
 """
 
 from app.config import settings
-from app.services.llm.base import EMBEDDING_DIM, LLMProvider, LLMProviderError
+from app.services.llm.base import (
+    EMBEDDING_DIM,
+    LLMProvider,
+    LLMProviderError,
+    QuotaExhaustedError,
+    RateLimitError,
+)
 from app.services.llm.gemini_provider import GeminiProvider
 from app.services.llm.stub_provider import StubProvider
 
-__all__ = ["EMBEDDING_DIM", "LLMProvider", "LLMProviderError", "get_provider"]
+__all__ = [
+    "EMBEDDING_DIM",
+    "LLMProvider",
+    "LLMProviderError",
+    "QuotaExhaustedError",
+    "RateLimitError",
+    "get_provider",
+]
 
 _provider: LLMProvider | None = None
 

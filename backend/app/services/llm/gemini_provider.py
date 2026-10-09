@@ -13,25 +13,55 @@ from collections.abc import Iterator
 from google import genai
 
 from app.config import settings
-from app.services.llm.base import LLMProviderError, RateLimitError
+from app.services.llm.base import LLMProviderError, QuotaExhaustedError, RateLimitError
 from app.services.security import redact
 
-# Substrings (checked case-insensitively) that identify a rate-limit/quota
-# failure in the SDK's own exception message, as distinct from any other
-# provider error (AC-041). Deliberately conservative: an error that does not
-# clearly say "rate limit" is treated as a non-retryable failure.
+# Substrings (checked case-insensitively) that identify an exhausted-quota
+# failure in the SDK's own exception message -- distinct from, and checked
+# before, a merely transient rate limit (AC-096). Deliberately specific:
+# only a message that clearly names a quota/billing limit is treated as
+# terminal; everything else that looks rate-limit-ish falls through to the
+# retryable classification below.
+_QUOTA_EXHAUSTED_MARKERS = (
+    "quota exceeded",
+    "exceeded your current quota",
+    "exceeded your quota",
+    "quota exhausted",
+    "billing",
+)
+
+# Substrings that identify a retryable rate-limit failure in the SDK's own
+# exception message, as distinct from any other provider error (AC-041).
+# Deliberately conservative: an error that does not clearly say "rate limit"
+# is treated as a non-retryable failure.
 _RATE_LIMIT_MARKERS = (
     "rate limit",
     "429",
     "resource_exhausted",
-    "quota exceeded",
     "too many requests",
 )
 
 
-def _is_rate_limit_message(message: str) -> bool:
-    lowered = message.lower()
-    return any(marker in lowered for marker in _RATE_LIMIT_MARKERS)
+def _classify(raw_message: str) -> type[LLMProviderError]:
+    """Return the specific `LLMProviderError` subclass `raw_message`
+    indicates, or the base class when neither failure mode matches.
+
+    Quota is checked first: "quota exceeded" would otherwise also match a
+    looser rate-limit marker, and the two modes must never be conflated
+    (AC-096) -- an exhausted quota is terminal, a rate limit is retried.
+    """
+    lowered = raw_message.lower()
+    if any(marker in lowered for marker in _QUOTA_EXHAUSTED_MARKERS):
+        return QuotaExhaustedError
+    if any(marker in lowered for marker in _RATE_LIMIT_MARKERS):
+        return RateLimitError
+    return LLMProviderError
+
+
+def _redacted_error(exc: Exception) -> LLMProviderError:
+    raw_message = str(exc)
+    error_cls = _classify(raw_message)
+    return error_cls(redact(raw_message))
 
 
 class GeminiProvider:
@@ -48,10 +78,7 @@ class GeminiProvider:
             )
             return [list(embedding.values) for embedding in result.embeddings]
         except Exception as exc:  # noqa: BLE001 -- re-raised redacted, below
-            message = redact(str(exc))
-            if _is_rate_limit_message(str(exc)):
-                raise RateLimitError(message) from None
-            raise LLMProviderError(message) from None
+            raise _redacted_error(exc) from None
 
     def generate(self, prompt: str) -> str:
         try:
@@ -61,7 +88,7 @@ class GeminiProvider:
             )
             return response.text or ""
         except Exception as exc:  # noqa: BLE001
-            raise LLMProviderError(redact(str(exc))) from None
+            raise _redacted_error(exc) from None
 
     def generate_stream(self, prompt: str) -> Iterator[str]:
         try:
@@ -73,4 +100,4 @@ class GeminiProvider:
                 if chunk.text:
                     yield chunk.text
         except Exception as exc:  # noqa: BLE001
-            raise LLMProviderError(redact(str(exc))) from None
+            raise _redacted_error(exc) from None
